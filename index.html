@@ -71,7 +71,7 @@
                 <h3 class="text-xl font-bold text-gray-800 mb-2">請設定您的身分與單位</h3>
                 <p class="text-sm text-gray-500 mb-6">各單位擁有獨立的交接看板與資料庫。</p>
                 
-                <!-- 恢復：三個單位分流的下拉選單 -->
+                <!-- 三個單位分流的下拉選單 -->
                 <div class="mb-4 text-left">
                     <label class="block text-sm font-bold text-gray-700 mb-1">請選擇您所屬的單位</label>
                     <select id="unitSelect" class="w-full border-2 border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none font-bold">
@@ -163,17 +163,13 @@
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1">指派給 (負責人 / 班別)</label>
                         <input type="text" id="taskAssignee" class="w-full border border-gray-300 rounded-lg p-3 mb-2 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none bg-white" placeholder="點擊下方標籤，或直接輸入名稱">
-                        <div id="assigneeQuickSelect" class="flex flex-wrap gap-2">
-                            <!-- JS 動態生成快速選擇標籤 -->
-                        </div>
+                        <div id="assigneeQuickSelect" class="flex flex-wrap gap-2"></div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-1">任務區域 (Zone)</label>
-                            <select id="taskZone" class="w-full border border-gray-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none">
-                                <!-- JS 動態產生選項 -->
-                            </select>
+                            <select id="taskZone" class="w-full border border-gray-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none"></select>
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-1">任務屬性</label>
@@ -195,9 +191,7 @@
                             <span>任務分類</span>
                             <button type="button" onclick="openSettingsModal()" class="text-xs text-ikea-blue bg-[#e6f0f7] px-2 py-1 rounded-md border border-blue-100 hover:bg-blue-100 transition"><i class="fa-solid fa-pen"></i> 自訂分類</button>
                         </label>
-                        <div id="dynamicCategorySelection" class="flex flex-wrap gap-2">
-                            <!-- JS 動態生成 -->
-                        </div>
+                        <div id="dynamicCategorySelection" class="flex flex-wrap gap-2"></div>
                     </div>
 
                     <div>
@@ -448,8 +442,6 @@
     </div>
 
     <script>
-        const GEMINI_API_KEY = "AIzaSyBbcNF3jcZeK6Rba4qYG0gZkrpKUtAhlVg"; 
-
         var tasks = [];
         var shiftReports = [];
         var currentEditingTaskId = null;
@@ -1166,27 +1158,26 @@
         function openShiftReportsModal() { document.getElementById('shiftReportsModal').classList.remove('hidden'); document.getElementById('shiftReportsModal').classList.add('flex'); if (window.renderShiftReportsList) window.renderShiftReportsList(); }
         function closeShiftReportsModal() { document.getElementById('shiftReportsModal').classList.add('hidden'); document.getElementById('shiftReportsModal').classList.remove('flex'); }
 
+        // ==========================================
+        // 核心更新：將 AI 請求轉往 Netlify Functions
+        // ==========================================
         async function callGeminiAPI(prompt, systemInstruction = "") {
             const aiLoading = document.getElementById('aiLoading'), aiResultContainer = document.getElementById('aiResultContainer'), aiResult = document.getElementById('aiResult');
             aiLoading.classList.remove('hidden'); aiLoading.classList.add('flex'); aiResultContainer.classList.add('hidden');
             
-            // 修正為 gemini-flash-latest
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
-            const payload = { contents: [{ parts: [{ text: prompt }] }] };
-            
-            if (systemInstruction) {
-                payload.system_instruction = { parts: [{ text: systemInstruction }] };
-            }
-
             try {
-                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                // 呼叫自己建好的轉接站
+                const response = await fetch('/.netlify/functions/gemini', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ prompt: prompt, systemInstruction: systemInstruction }) 
+                });
                 const data = await response.json();
                 
                 aiLoading.classList.add('hidden'); aiLoading.classList.remove('flex');
                 
-                if (!response.ok) {
-                    console.error("API 錯誤:", data);
-                    showToast("API 錯誤: " + (data.error?.message || "未知錯誤"), true);
+                if (data.error) {
+                    showToast("API 錯誤: " + data.error, true);
                     return;
                 }
 
@@ -1202,7 +1193,7 @@
                 }
             } catch (error) { 
                 aiLoading.classList.add('hidden'); aiLoading.classList.remove('flex'); 
-                aiResult.innerHTML = "<p class='text-red-500'>發生錯誤，請檢查網路連線。</p>"; aiResultContainer.classList.remove('hidden'); 
+                aiResult.innerHTML = "<p class='text-red-500'>發生網路錯誤或轉接站異常。</p>"; aiResultContainer.classList.remove('hidden'); 
             }
         }
 
@@ -1236,33 +1227,30 @@
             callGeminiAPI(`請幫我整理交班報告，以下是目前所有未完成的任務：\n\n${taskData}`, `你是一位專業的賣場交班助理。請根據提供的未完成任務，產生一份給『下一班次』的正式交班報告，務必總結最近動態的處理進度。`);
         }
 
+        // ==========================================
+        // 核心更新：將語音 AI 請求轉往 Netlify Functions
+        // ==========================================
         async function refineTaskDescWithAI() {
             const descInput = document.getElementById('taskDesc'), btn = document.getElementById('aiRefineBtn');
             const originalText = descInput.value.trim();
             if (!originalText) { showToast("請先輸入或語音錄製詳細內容！"); return; }
             
-            if (!GEMINI_API_KEY || GEMINI_API_KEY === "請在這裡貼上你的Gemini金鑰") {
-                showToast("請先在程式碼中填寫 Gemini API Key！", true);
-                return;
-            }
-
             const originalBtnHTML = btn.innerHTML; btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 整理中...`; btn.disabled = true;
-            
-            // 修正為 gemini-flash-latest
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
-            
-            const payload = {
-                contents: [{ parts: [{ text: `請幫我把這段語音紀錄整理得更清楚：\n\n${originalText}` }] }],
-                system_instruction: { parts: [{ text: "你是一位細心的門市店長助理。請將使用者口語化的語音紀錄整理成條理清晰的交接說明，直接輸出整理後的文字。" }] }
-            };
 
             try {
-                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                // 呼叫自己建好的轉接站
+                const response = await fetch('/.netlify/functions/gemini', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ 
+                        prompt: `請幫我把這段語音紀錄整理得更清楚：\n\n${originalText}`, 
+                        systemInstruction: "你是一位細心的門市店長助理。請將使用者口語化的語音紀錄整理成條理清晰的交接說明，直接輸出整理後的文字。" 
+                    }) 
+                });
                 const data = await response.json();
                 
-                if (!response.ok) {
-                    console.error("API 錯誤:", data);
-                    showToast("API 錯誤: " + (data.error?.message || "未知錯誤"), true);
+                if (data.error) {
+                    showToast("API 錯誤: " + data.error, true);
                     return;
                 }
 
@@ -1488,7 +1476,6 @@
                         else deleteBtn.classList.add('hidden');
                     }
                     
-                    // 恢復：必須確認單位存在，才啟動資料同步
                     if (window.currentUnit) {
                         window.startAllSync();
                     }
@@ -1496,7 +1483,6 @@
             });
         }
 
-        // 恢復：資料庫路徑皆套用 ${currentUnit} 分流
         window.startAllSync = function() {
             if (!currentUser || !window.currentUnit) return;
             startTaskSync(); 
