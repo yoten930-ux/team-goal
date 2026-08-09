@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>IKEA 團隊交接看板</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 注入 IKEA 專屬品牌色 -->
     <script>
         tailwind.config = {
             theme: {
@@ -28,6 +27,10 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;700;900&display=swap');
+        html, body {
+            max-width: 100%;
+            overflow-x: hidden; /* 強制防止畫面左右滑動 */
+        }
         body {
             font-family: 'Noto Sans', sans-serif;
             background-color: #f5f5f5;
@@ -43,9 +46,9 @@
         .markdown-body strong { font-weight: bold; }
     </style>
 </head>
-<body class="text-gray-800 h-screen flex flex-col overflow-hidden max-w-md mx-auto bg-white shadow-xl relative">
+<body class="text-gray-800 h-screen flex flex-col overflow-hidden max-w-md mx-auto bg-white shadow-xl relative w-full">
 
-    <div id="identityModal" class="fixed inset-0 bg-black bg-opacity-70 z-[100] hidden flex-col justify-center items-center px-4 backdrop-blur-sm">
+    <div id="identityModal" class="fixed inset-0 bg-black bg-opacity-70 z-[100] hidden flex-col justify-center items-center px-4 backdrop-blur-sm w-full">
         <div class="bg-white rounded-2xl w-full max-w-sm modal-enter overflow-hidden flex flex-col p-6 text-center shadow-2xl border border-gray-100">
             <div class="w-16 h-16 bg-[#e6f0f7] text-ikea-blue rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-inner">
                 <i class="fa-solid fa-id-badge"></i>
@@ -69,7 +72,7 @@
 
     <div id="toastContainer" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 w-max max-w-[90%] text-center pointer-events-none"></div>
 
-    <header class="bg-ikea-blue text-white p-4 shadow-md flex justify-between items-center z-10 shrink-0 border-b-4 border-ikea-yellow">
+    <header class="bg-ikea-blue text-white p-4 shadow-md flex justify-between items-center z-10 shrink-0 border-b-4 border-ikea-yellow w-full">
         <div>
             <h1 class="text-xl font-black tracking-wide"><i class="fa-solid fa-clipboard-list mr-2"></i>交接任務板</h1>
             <div class="flex items-center gap-2 text-xs text-white opacity-90 mt-1 cursor-pointer bg-ikea-darkblue bg-opacity-80 px-2 py-1 rounded-full w-max hover:bg-opacity-100 transition" onclick="document.getElementById('identityModal').classList.remove('hidden'); document.getElementById('identityModal').classList.add('flex');" title="點擊修改身分">
@@ -92,7 +95,7 @@
         </div>
     </header>
 
-    <div class="bg-white px-4 pt-3 pb-0 shadow-sm shrink-0 z-10 flex flex-col gap-3">
+    <div class="bg-white px-4 pt-3 pb-0 shadow-sm shrink-0 z-10 flex flex-col gap-3 w-full">
         <div class="relative w-full">
             <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-gray-400"></i>
             <input type="search" id="searchInput" oninput="handleSearch()" class="w-full bg-gray-100 rounded-lg pl-9 pr-3 py-2 outline-none focus:ring-2 focus:ring-ikea-blue text-sm" placeholder="搜尋任務標題、內容、回報或負責人...">
@@ -103,7 +106,7 @@
         </div>
     </div>
 
-    <main class="flex-1 overflow-y-auto no-scrollbar p-4 bg-[#f5f5f5] pb-24" id="taskList">
+    <main class="flex-1 overflow-y-auto no-scrollbar p-4 bg-[#f5f5f5] pb-24 w-full" id="taskList">
         <div class="text-center text-gray-400 mt-10" id="emptyState">
             <i class="fa-solid fa-box-open text-4xl mb-3"></i>
             <p>目前沒有待辦事項<br>點擊右下角新增交接任務</p>
@@ -114,8 +117,8 @@
         <i class="fa-solid fa-plus"></i>
     </button>
 
-    <div id="addModal" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden flex-col justify-end max-w-md mx-auto">
-        <div class="bg-white rounded-t-2xl p-5 h-[85vh] flex flex-col modal-enter">
+    <div id="addModal" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden flex-col justify-end max-w-md mx-auto w-full">
+        <div class="bg-white rounded-t-2xl p-5 h-[85vh] flex flex-col modal-enter w-full">
             <div class="flex justify-between items-center mb-4 shrink-0">
                 <h2 class="text-xl font-black text-ikea-blue" id="modalTitle">新增交接事項</h2>
                 <button onclick="closeAddModal()" class="text-gray-500 p-2 text-xl hover:text-gray-800"><i class="fa-solid fa-xmark"></i></button>
@@ -129,10 +132,11 @@
                 
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-1">指派給 (負責人 / 班別)</label>
-                    <input type="text" id="taskAssignee" list="assigneeList" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none bg-white" placeholder="例如：早班、晚班、店長或輸入姓名">
-                    <datalist id="assigneeList">
-                        <!-- JS 動態生成常見指派清單 -->
-                    </datalist>
+                    <!-- 解決 iPhone 無法下拉的問題：改用輸入框 + 下方快速點擊標籤 -->
+                    <input type="text" id="taskAssignee" class="w-full border border-gray-300 rounded-lg p-3 mb-2 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none bg-white" placeholder="點擊下方標籤，或直接輸入名稱">
+                    <div id="assigneeQuickSelect" class="flex flex-wrap gap-2">
+                        <!-- JS 動態生成快速選擇標籤 -->
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
@@ -221,8 +225,8 @@
         </div>
     </div>
 
-    <div id="detailModal" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden flex-col justify-end max-w-md mx-auto">
-        <div class="bg-white rounded-t-2xl h-[90vh] flex flex-col modal-enter relative">
+    <div id="detailModal" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden flex-col justify-end max-w-md mx-auto w-full">
+        <div class="bg-white rounded-t-2xl h-[90vh] flex flex-col modal-enter relative w-full">
             
             <div id="detailHeader" class="h-40 bg-gray-200 rounded-t-2xl relative overflow-hidden shrink-0">
                 <img id="detailImage" class="w-full h-full object-cover hidden">
@@ -288,7 +292,7 @@
         </div>
     </div>
 
-    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex-col justify-center items-center px-4">
+    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex-col justify-center items-center px-4 w-full">
         <div class="bg-white rounded-2xl w-full max-w-sm modal-enter overflow-hidden flex flex-col max-h-[85vh]">
             <div class="flex justify-between items-center p-4 border-b bg-gray-50 shrink-0">
                 <h2 class="text-lg font-black text-ikea-blue"><i class="fa-solid fa-gear mr-2"></i>系統設定</h2>
@@ -372,8 +376,8 @@
         </div>
     </div>
 
-    <div id="aiModal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden flex-col justify-end max-w-md mx-auto">
-        <div class="bg-white rounded-t-2xl h-[70vh] flex flex-col modal-enter relative">
+    <div id="aiModal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden flex-col justify-end max-w-md mx-auto w-full">
+        <div class="bg-white rounded-t-2xl h-[70vh] flex flex-col modal-enter relative w-full">
             <div class="flex justify-between items-center p-4 border-b shrink-0 bg-purple-50 rounded-t-2xl">
                 <h2 class="text-lg font-black text-purple-800"><i class="fa-solid fa-sparkles mr-2"></i>AI 任務助理</h2>
                 <button onclick="closeAIAssistant()" class="text-purple-500 p-2 text-xl hover:text-purple-700"><i class="fa-solid fa-xmark"></i></button>
@@ -404,8 +408,8 @@
         </div>
     </div>
 
-    <div id="shiftReportsModal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden flex-col justify-end max-w-md mx-auto">
-        <div class="bg-white rounded-t-2xl h-[85vh] flex flex-col modal-enter relative">
+    <div id="shiftReportsModal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden flex-col justify-end max-w-md mx-auto w-full">
+        <div class="bg-white rounded-t-2xl h-[85vh] flex flex-col modal-enter relative w-full">
             <div class="flex justify-between items-center p-4 border-b shrink-0 bg-[#e6f0f7] rounded-t-2xl">
                 <h2 class="text-lg font-black text-ikea-blue"><i class="fa-solid fa-file-invoice mr-2"></i>歷史交班紀錄</h2>
                 <button onclick="closeShiftReportsModal()" class="text-ikea-blue opacity-50 p-2 text-xl hover:opacity-100"><i class="fa-solid fa-xmark"></i></button>
@@ -416,7 +420,7 @@
         </div>
     </div>
 
-    <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex-col justify-center items-center px-4">
+    <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex-col justify-center items-center px-4 w-full">
         <div class="bg-white rounded-2xl w-full max-w-sm modal-enter overflow-hidden flex flex-col p-5 text-center">
             <div class="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
                 <i class="fa-solid fa-triangle-exclamation"></i>
@@ -431,6 +435,13 @@
     </div>
 
     <script>
+        // ----------------------------------------------------
+        // ⚠️ 請在這裡填入你的 Google Gemini API Key
+        // 如果保持空白，AI 功能將無法運作並顯示「AI 整理失敗」
+        // 申請網址：https://aistudio.google.com/app/apikey
+        // ----------------------------------------------------
+        const GEMINI_API_KEY = "AIzaSyBbcNF3jcZeK6Rba4qYG0gZkrpKUtAhlVg"; 
+
         var tasks = [];
         var shiftReports = [];
         var currentEditingTaskId = null;
@@ -1131,8 +1142,14 @@
         async function callGeminiAPI(prompt, systemInstruction = "") {
             const aiLoading = document.getElementById('aiLoading'), aiResultContainer = document.getElementById('aiResultContainer'), aiResult = document.getElementById('aiResult');
             aiLoading.classList.remove('hidden'); aiLoading.classList.add('flex'); aiResultContainer.classList.add('hidden');
-            const apiKey = ""; 
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+            
+            if (!GEMINI_API_KEY || GEMINI_API_KEY === "請在這裡貼上你的Gemini金鑰") {
+                aiLoading.classList.add('hidden'); aiLoading.classList.remove('flex');
+                showToast("請先在程式碼中填寫 Gemini API Key！", true);
+                return;
+            }
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             if (systemInstruction) payload.systemInstruction = { parts: [{ text: systemInstruction }] };
 
@@ -1148,7 +1165,7 @@
                         btn.classList.remove('hidden'); btn.innerHTML = '<i class="fa-solid fa-box-archive mr-1"></i> 封存為正式交班紀錄'; btn.disabled = false; btn.classList.remove('bg-green-500'); btn.classList.add('bg-purple-600');
                     } else { document.getElementById('saveShiftReportBtn').classList.add('hidden'); }
                 } else { aiResult.innerHTML = "<p class='text-red-500'>AI 無法產生回應。</p>"; aiResultContainer.classList.remove('hidden'); }
-            } catch (error) { aiLoading.classList.add('hidden'); aiLoading.classList.remove('flex'); aiResult.innerHTML = "<p class='text-red-500'>發生錯誤。</p>"; aiResultContainer.classList.remove('hidden'); }
+            } catch (error) { aiLoading.classList.add('hidden'); aiLoading.classList.remove('flex'); aiResult.innerHTML = "<p class='text-red-500'>發生錯誤，請檢查 API Key 是否正確。</p>"; aiResultContainer.classList.remove('hidden'); }
         }
 
         function formatMarkdown(text) {
@@ -1185,14 +1202,20 @@
             const descInput = document.getElementById('taskDesc'), btn = document.getElementById('aiRefineBtn');
             const originalText = descInput.value.trim();
             if (!originalText) { showToast("請先輸入或語音錄製詳細內容！"); return; }
+            
+            if (!GEMINI_API_KEY || GEMINI_API_KEY === "請在這裡貼上你的Gemini金鑰") {
+                showToast("請先在程式碼中填寫 Gemini API Key！", true);
+                return;
+            }
+
             const originalBtnHTML = btn.innerHTML; btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 整理中...`; btn.disabled = true;
-            const apiKey = ""; const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
             try {
                 const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: `請幫我把這段語音紀錄整理得更清楚：\n\n${originalText}` }] }], systemInstruction: { parts: [{ text: "你是一位細心的門市店長助理。請將使用者口語化的語音紀錄整理成條理清晰的交接說明，直接輸出整理後的文字。" }] } }) });
                 const data = await response.json();
                 if (data.candidates && data.candidates.length > 0) descInput.value = data.candidates[0].content.parts[0].text.trim();
                 else showToast("AI 整理失敗", true);
-            } catch (error) { showToast("發生錯誤", true); } finally { btn.innerHTML = originalBtnHTML; btn.disabled = false; }
+            } catch (error) { showToast("發生錯誤，請檢查金鑰", true); } finally { btn.innerHTML = originalBtnHTML; btn.disabled = false; }
         }
 
         function saveShiftReport() {
@@ -1279,8 +1302,12 @@
         }
 
         function renderAssignees() {
-            const datalist = document.getElementById('assigneeList');
-            if (datalist) datalist.innerHTML = assignees.map(a => `<option value="${escapeHTML(a)}"></option>`).join('');
+            // 將按鈕點擊後寫入 taskAssignee 輸入框
+            const quickSelect = document.getElementById('assigneeQuickSelect');
+            if (quickSelect) {
+                quickSelect.innerHTML = assignees.map(a => `<button type="button" onclick="document.getElementById('taskAssignee').value='${escapeHTML(a)}'" class="px-3 py-1 bg-[#e6f0f7] text-ikea-blue border border-blue-200 rounded-full text-xs font-bold active:scale-95 transition shadow-sm">${escapeHTML(a)}</button>`).join('');
+            }
+
             const managerList = document.getElementById('assigneeManagerList');
             if (managerList) {
                 managerList.innerHTML = assignees.map((a, index) => {
