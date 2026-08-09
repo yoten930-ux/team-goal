@@ -89,9 +89,7 @@
                 
                 <div class="mb-5">
                     <p class="text-xs text-gray-400 mb-2 text-left">或使用常用代號快速輸入：</p>
-                    <div id="quickNameContainer" class="flex flex-wrap gap-2 justify-center">
-                        <!-- JS 動態生成快選按鈕 -->
-                    </div>
+                    <div id="quickNameContainer" class="flex flex-wrap gap-2 justify-center"></div>
                 </div>
 
                 <button onclick="saveIdentity()" class="w-full bg-ikea-blue text-white font-bold py-3.5 rounded-xl shadow-md hover:bg-ikea-darkblue transition active:scale-95 text-lg">
@@ -442,6 +440,8 @@
     </div>
 
     <script>
+        const GEMINI_API_KEY = "AQ.Ab8RN6IdzYfdDm59-g86HpuVlJmt0Y7uyptDRf1kfPQG5TJqWg"; 
+
         var tasks = [];
         var shiftReports = [];
         var currentEditingTaskId = null;
@@ -1159,25 +1159,31 @@
         function closeShiftReportsModal() { document.getElementById('shiftReportsModal').classList.add('hidden'); document.getElementById('shiftReportsModal').classList.remove('flex'); }
 
         // ==========================================
-        // 核心更新：將 AI 請求轉往 Netlify Functions
+        // 核心更新：正確的 API 模型名稱，以及 JSON.stringify 解析錯誤物件
         // ==========================================
         async function callGeminiAPI(prompt, systemInstruction = "") {
             const aiLoading = document.getElementById('aiLoading'), aiResultContainer = document.getElementById('aiResultContainer'), aiResult = document.getElementById('aiResult');
             aiLoading.classList.remove('hidden'); aiLoading.classList.add('flex'); aiResultContainer.classList.add('hidden');
             
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+            const payload = { contents: [{ parts: [{ text: prompt }] }] };
+            
+            // 修正：使用正確的 camelCase 參數名稱
+            if (systemInstruction) {
+                payload.systemInstruction = { parts: [{ text: systemInstruction }] };
+            }
+
             try {
-                // 呼叫自己建好的轉接站
-                const response = await fetch('/.netlify/functions/gemini', { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ prompt: prompt, systemInstruction: systemInstruction }) 
-                });
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const data = await response.json();
                 
                 aiLoading.classList.add('hidden'); aiLoading.classList.remove('flex');
                 
-                if (data.error) {
-                    showToast("API 錯誤: " + data.error, true);
+                if (!response.ok) {
+                    console.error("完整錯誤內容:", data);
+                    // 修正：攤開 Object，避免出現 [object Object]
+                    const errMsg = typeof data.error?.message === 'string' ? data.error.message : JSON.stringify(data.error, null, 2);
+                    showToast("API 錯誤: " + errMsg, true);
                     return;
                 }
 
@@ -1193,7 +1199,8 @@
                 }
             } catch (error) { 
                 aiLoading.classList.add('hidden'); aiLoading.classList.remove('flex'); 
-                aiResult.innerHTML = "<p class='text-red-500'>發生網路錯誤或轉接站異常。</p>"; aiResultContainer.classList.remove('hidden'); 
+                aiResult.innerHTML = "<p class='text-red-500'>發生網路錯誤。</p>"; aiResultContainer.classList.remove('hidden'); 
+                console.error(error);
             }
         }
 
@@ -1227,30 +1234,35 @@
             callGeminiAPI(`請幫我整理交班報告，以下是目前所有未完成的任務：\n\n${taskData}`, `你是一位專業的賣場交班助理。請根據提供的未完成任務，產生一份給『下一班次』的正式交班報告，務必總結最近動態的處理進度。`);
         }
 
-        // ==========================================
-        // 核心更新：將語音 AI 請求轉往 Netlify Functions
-        // ==========================================
         async function refineTaskDescWithAI() {
             const descInput = document.getElementById('taskDesc'), btn = document.getElementById('aiRefineBtn');
             const originalText = descInput.value.trim();
             if (!originalText) { showToast("請先輸入或語音錄製詳細內容！"); return; }
             
+            if (!GEMINI_API_KEY || GEMINI_API_KEY === "請在這裡貼上你的Gemini金鑰") {
+                showToast("請先在程式碼中填寫 Gemini API Key！", true);
+                return;
+            }
+
             const originalBtnHTML = btn.innerHTML; btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 整理中...`; btn.disabled = true;
+            
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+            
+            // 修正：使用正確的 camelCase 參數名稱
+            const payload = {
+                contents: [{ parts: [{ text: `請幫我把這段語音紀錄整理得更清楚：\n\n${originalText}` }] }],
+                systemInstruction: { parts: [{ text: "你是一位細心的門市店長助理。請將使用者口語化的語音紀錄整理成條理清晰的交接說明，直接輸出整理後的文字。" }] }
+            };
 
             try {
-                // 呼叫自己建好的轉接站
-                const response = await fetch('/.netlify/functions/gemini', { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ 
-                        prompt: `請幫我把這段語音紀錄整理得更清楚：\n\n${originalText}`, 
-                        systemInstruction: "你是一位細心的門市店長助理。請將使用者口語化的語音紀錄整理成條理清晰的交接說明，直接輸出整理後的文字。" 
-                    }) 
-                });
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const data = await response.json();
                 
-                if (data.error) {
-                    showToast("API 錯誤: " + data.error, true);
+                if (!response.ok) {
+                    console.error("完整錯誤內容:", data);
+                    // 修正：攤開 Object，避免出現 [object Object]
+                    const errMsg = typeof data.error?.message === 'string' ? data.error.message : JSON.stringify(data.error, null, 2);
+                    showToast("API 錯誤: " + errMsg, true);
                     return;
                 }
 
@@ -1261,6 +1273,7 @@
                 }
             } catch (error) { 
                 showToast("發生網路錯誤", true); 
+                console.error(error);
             } finally { 
                 btn.innerHTML = originalBtnHTML; 
                 btn.disabled = false; 
