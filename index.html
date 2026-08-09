@@ -28,7 +28,6 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;700;900&display=swap');
         
-        /* 徹底鎖死底層，防止 iOS 橡皮筋回彈與左右晃動，限制僅允許上下滑動 */
         html, body {
             overscroll-behavior: none;
             -webkit-overflow-scrolling: auto;
@@ -38,6 +37,12 @@
             font-family: 'Noto Sans', sans-serif;
             -webkit-tap-highlight-color: transparent;
         }
+        
+        /* 終極解法：強制所有輸入框字體為 16px，防止 iOS Safari 自動放大導致畫面左右晃動 */
+        input, select, textarea {
+            font-size: 16px !important;
+        }
+
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { 
             -ms-overflow-style: none; 
@@ -62,18 +67,34 @@
                 <div class="w-16 h-16 bg-[#e6f0f7] text-ikea-blue rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-inner">
                     <i class="fa-solid fa-id-badge"></i>
                 </div>
-                <h3 class="text-xl font-bold text-gray-800 mb-2">請輸入您的姓名或代號</h3>
-                <p class="text-sm text-gray-500 mb-6">為了落實交接當責，所有任務與進度回報都將標示您的身分。</p>
-                <input type="text" id="identityNameInput" class="w-full border-2 border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none text-center font-bold text-lg mb-3" placeholder="例如：王小明、早班店長">
+                <h3 class="text-xl font-bold text-gray-800 mb-2">請設定您的身分與單位</h3>
+                <p class="text-sm text-gray-500 mb-6">各單位擁有獨立的交接看板與資料庫。</p>
+                
+                <!-- 恢復：三個單位分流的下拉選單 -->
+                <div class="mb-4 text-left">
+                    <label class="block text-sm font-bold text-gray-700 mb-1">請選擇您所屬的單位</label>
+                    <select id="unitSelect" class="w-full border-2 border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none font-bold">
+                        <option value="" disabled selected>-- 點擊選擇單位 --</option>
+                        <option value="餐廳外場">🍽️ 餐廳外場</option>
+                        <option value="餐廳內場">🍳 餐廳內場</option>
+                        <option value="美食小站及超市">🌭 美食小站及超市</option>
+                    </select>
+                </div>
+
+                <div class="mb-4 text-left">
+                    <label class="block text-sm font-bold text-gray-700 mb-1">請輸入您的姓名或代號</label>
+                    <input type="text" id="identityNameInput" class="w-full border-2 border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none text-center font-bold" placeholder="例如：王小明、早班店長">
+                </div>
                 
                 <div class="mb-5">
-                    <p class="text-xs text-gray-400 mb-2 text-left">或使用常用代號快速登入：</p>
+                    <p class="text-xs text-gray-400 mb-2 text-left">或使用常用代號快速輸入：</p>
                     <div id="quickNameContainer" class="flex flex-wrap gap-2 justify-center">
+                        <!-- JS 動態生成快選按鈕 -->
                     </div>
                 </div>
 
                 <button onclick="saveIdentity()" class="w-full bg-ikea-blue text-white font-bold py-3.5 rounded-xl shadow-md hover:bg-ikea-darkblue transition active:scale-95 text-lg">
-                    開始使用
+                    進入專屬看板
                 </button>
             </div>
         </div>
@@ -420,9 +441,6 @@
     </div>
 
     <script>
-        // ----------------------------------------------------
-        // 你的專屬 Gemini API Key
-        // ----------------------------------------------------
         const GEMINI_API_KEY = "AIzaSyBbcNF3jcZeK6Rba4qYG0gZkrpKUtAhlVg"; 
 
         var tasks = [];
@@ -430,7 +448,10 @@
         var currentEditingTaskId = null;
         var selectedImageBase64 = null;
         var currentUserRole = 'manager'; 
+        
+        // 恢復：三個單位分流的變數
         var currentUserName = localStorage.getItem('teamBoardUserName') || '';
+        var currentUnit = localStorage.getItem('teamBoardUserUnit') || '';
 
         var categories = [
             { id: 'ops', label: '現場營運', color: 'purple' },
@@ -517,11 +538,13 @@
         });
 
         function checkUserIdentity() {
-            if (!currentUserName) {
+            // 恢復：必須同時確認姓名與單位
+            if (!currentUserName || !currentUnit) {
                 document.getElementById('identityModal').classList.remove('hidden');
                 document.getElementById('identityModal').classList.add('flex');
             } else {
-                document.getElementById('displayUserName').textContent = currentUserName;
+                document.getElementById('displayUserName').textContent = `${currentUnit} - ${currentUserName}`;
+                if (window.db) { window.startAllSync(); }
             }
         }
 
@@ -558,22 +581,28 @@
 
         function saveIdentity() {
             const name = document.getElementById('identityNameInput').value.trim();
-            if (name) {
+            const unit = document.getElementById('unitSelect').value;
+            
+            if (name && unit) {
                 currentUserName = name;
+                currentUnit = unit;
                 localStorage.setItem('teamBoardUserName', name);
+                localStorage.setItem('teamBoardUserUnit', unit);
+                
                 document.getElementById('identityModal').classList.add('hidden');
                 document.getElementById('identityModal').classList.remove('flex');
-                document.getElementById('displayUserName').textContent = name;
-                showToast(`歡迎回來，${name}！`);
+                document.getElementById('displayUserName').textContent = `${currentUnit} - ${name}`;
+                showToast(`歡迎回來，${currentUnit}的 ${name}！`);
+                
+                if (window.db) { window.startAllSync(); }
             } else {
-                showToast("請輸入姓名或代號！", true);
+                showToast("請輸入姓名並選擇單位！", true);
             }
         }
 
         function quickSelectName(index) {
             const name = quickNames[index];
             document.getElementById('identityNameInput').value = name;
-            saveIdentity(); 
         }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -601,7 +630,18 @@
                 else targetInput.value += transcript;
                 if (statusText) statusText.classList.add('hidden');
             };
-            recognition.onerror = () => { if (statusText) statusText.classList.add('hidden'); showToast("語音辨識失敗", true); isRecognizing = false; };
+            
+            // 修復：語音辨識錯誤處理，精準提示原因
+            recognition.onerror = (event) => {
+                if (statusText) statusText.classList.add('hidden');
+                let msg = "語音辨識失敗";
+                if (event.error === 'not-allowed') msg = "請允許瀏覽器使用麥克風權限";
+                else if (event.error === 'no-speech') msg = "沒有偵測到語音，請再試一次";
+                else if (event.error === 'network') msg = "語音服務網路連線失敗";
+                showToast(msg, true);
+                isRecognizing = false;
+            };
+            
             recognition.onend = () => { if (statusText) statusText.classList.add('hidden'); isRecognizing = false; };
         }
 
@@ -1122,12 +1162,12 @@
         function openShiftReportsModal() { document.getElementById('shiftReportsModal').classList.remove('hidden'); document.getElementById('shiftReportsModal').classList.add('flex'); if (window.renderShiftReportsList) window.renderShiftReportsList(); }
         function closeShiftReportsModal() { document.getElementById('shiftReportsModal').classList.add('hidden'); document.getElementById('shiftReportsModal').classList.remove('flex'); }
 
-        /* ====== 修復：使用 gemini-flash-latest ====== */
         async function callGeminiAPI(prompt, systemInstruction = "") {
             const aiLoading = document.getElementById('aiLoading'), aiResultContainer = document.getElementById('aiResultContainer'), aiResult = document.getElementById('aiResult');
             aiLoading.classList.remove('hidden'); aiLoading.classList.add('flex'); aiResultContainer.classList.add('hidden');
             
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+            // 修復：使用最穩定的 gemini-1.5-flash
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             
             if (systemInstruction) {
@@ -1192,7 +1232,6 @@
             callGeminiAPI(`請幫我整理交班報告，以下是目前所有未完成的任務：\n\n${taskData}`, `你是一位專業的賣場交班助理。請根據提供的未完成任務，產生一份給『下一班次』的正式交班報告，務必總結最近動態的處理進度。`);
         }
 
-        /* ====== 修復：使用 gemini-flash-latest ====== */
         async function refineTaskDescWithAI() {
             const descInput = document.getElementById('taskDesc'), btn = document.getElementById('aiRefineBtn');
             const originalText = descInput.value.trim();
@@ -1205,7 +1244,8 @@
 
             const originalBtnHTML = btn.innerHTML; btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 整理中...`; btn.disabled = true;
             
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+            // 修復：使用最穩定的 gemini-1.5-flash
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
             
             const payload = {
                 contents: [{ parts: [{ text: `請幫我把這段語音紀錄整理得更清楚：\n\n${originalText}` }] }],
@@ -1400,10 +1440,8 @@
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, deleteDoc, onSnapshot, collection, query, addDoc, memoryLocalCache, initializeFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // 使用你的專案 ID 作為內部識別
         const appId = 'team-goal'; 
         
-        // 替換為你的專屬 Firebase 金鑰
         const firebaseConfig = {
             apiKey: "AIzaSyDmmTXwQ0JbHa-U7FRKxdMv2wN8BqZZLhw",
             authDomain: "team-goal.firebaseapp.com",
@@ -1419,11 +1457,11 @@
         if (Object.keys(firebaseConfig).length > 0) {
             app = initializeApp(firebaseConfig);
             db = initializeFirestore(app, { localCache: memoryLocalCache() });
+            window.db = db; // 暴露給全域檢查使用
             auth = getAuth(app);
             
             const initAuth = async () => {
                 try {
-                    // 使用匿名登入
                     await signInAnonymously(auth);
                 } catch (e) { console.error("Auth error:", e); }
             };
@@ -1445,17 +1483,18 @@
                         if (window.currentUserRole === 'manager') deleteBtn.classList.remove('hidden');
                         else deleteBtn.classList.add('hidden');
                     }
-                    window.renderCategoryManager();
-                    window.renderQuickNames();
-                    window.renderAssignees();
-                    window.renderZones();
-
-                    startAllSync();
+                    
+                    // 恢復：必須確認單位存在，才啟動資料同步
+                    if (window.currentUnit) {
+                        window.startAllSync();
+                    }
                 }
             });
         }
 
-        function startAllSync() {
+        // 恢復：資料庫路徑皆套用 ${currentUnit} 分流
+        window.startAllSync = function() {
+            if (!currentUser || !window.currentUnit) return;
             startTaskSync(); 
             startCategorySync(); 
             startQuickNamesSync(); 
@@ -1465,9 +1504,8 @@
         }
 
         function startTaskSync() {
-            if (!currentUser) return;
             try {
-                onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'tasks')), (snapshot) => {
+                onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', `${window.currentUnit}_tasks`)), (snapshot) => {
                     window.tasks = [];
                     snapshot.forEach((doc) => { window.tasks.push(doc.data()); });
                     window.renderTasks();
@@ -1480,10 +1518,10 @@
         }
 
         window.fbLoadAuditLogs = function(taskId) {
-            if (!currentUser || !db) return;
+            if (!currentUser || !db || !window.currentUnit) return;
             if (window.currentAuditLogUnsubscribe) { window.currentAuditLogUnsubscribe(); window.currentAuditLogUnsubscribe = null; }
             try {
-                window.currentAuditLogUnsubscribe = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId, 'auditLogs')), (snapshot) => {
+                window.currentAuditLogUnsubscribe = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', `${window.currentUnit}_tasks`, taskId, 'auditLogs')), (snapshot) => {
                     let logsArray = [];
                     snapshot.forEach((doc) => { logsArray.push(doc.data()); });
                     if(document.getElementById('detailModal').classList.contains('flex') && window.currentEditingTaskId === taskId) {
@@ -1494,9 +1532,8 @@
         }
 
         function startCategorySync() {
-            if (!currentUser) return;
             try {
-                onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'categoriesData'), (docSnap) => {
+                onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', `${window.currentUnit}_categoriesData`), (docSnap) => {
                     if (docSnap.exists() && docSnap.data().list) {
                         window.categories = docSnap.data().list; window.renderCategoryManager(); window.renderCategorySelection(); window.renderTasks();
                     }
@@ -1505,18 +1542,16 @@
         }
 
         function startQuickNamesSync() {
-            if (!currentUser) return;
             try {
-                onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'quickNamesData'), (docSnap) => {
+                onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', `${window.currentUnit}_quickNamesData`), (docSnap) => {
                     if (docSnap.exists() && docSnap.data().list) { window.quickNames = docSnap.data().list; window.renderQuickNames(); }
                 }, (error) => {});
             } catch(e){}
         }
 
         function startAssigneeSync() {
-            if (!currentUser) return;
             try {
-                onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'assigneesData'), (docSnap) => {
+                onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', `${window.currentUnit}_assigneesData`), (docSnap) => {
                     if (docSnap.exists() && docSnap.data().list) { 
                         window.assignees = docSnap.data().list; window.renderAssignees(); 
                     }
@@ -1525,9 +1560,8 @@
         }
 
         function startZoneSync() {
-            if (!currentUser) return;
             try {
-                onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'zonesData'), (docSnap) => {
+                onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', `${window.currentUnit}_zonesData`), (docSnap) => {
                     if (docSnap.exists() && docSnap.data().list) { 
                         window.zones = docSnap.data().list; window.renderZones(); 
                     }
@@ -1536,9 +1570,8 @@
         }
 
         function startShiftReportSync() {
-            if (!currentUser) return;
             try {
-                onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'shiftReports')), (snapshot) => {
+                onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', `${window.currentUnit}_shiftReports`)), (snapshot) => {
                     window.shiftReports = [];
                     snapshot.forEach((doc) => { window.shiftReports.push(doc.data()); });
                     window.shiftReports.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -1559,15 +1592,15 @@
             `).join('');
         };
 
-        window.fbSaveTask = async (task) => { if (currentUser && db) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', task.id), task).catch(e=>{}); };
-        window.fbUpdateTask = async (task) => { if (currentUser && db) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', task.id), task).catch(e => { if(window.showToast) window.showToast("更新失敗", true); }); };
-        window.fbAppendAuditLog = async (taskId, logData) => { if (currentUser && db) await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId, 'auditLogs'), logData).catch(e=>{}); };
-        window.fbDeleteTask = async (taskId) => { if (currentUser && db) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId)).catch(e => { if(window.showToast) window.showToast("刪除失敗", true); }); };
-        window.fbSaveCategories = async (newCategories) => { if (currentUser && db) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'categoriesData'), { list: newCategories }).catch(e=>{}); };
-        window.fbSaveQuickNames = async (names) => { if (currentUser && db) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'quickNamesData'), { list: names }).catch(e=>{}); };
-        window.fbSaveAssignees = async (list) => { if (currentUser && db) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'assigneesData'), { list: list }).catch(e=>{}); }; 
-        window.fbSaveZones = async (list) => { if (currentUser && db) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'zonesData'), { list: list }).catch(e=>{}); }; 
-        window.fbSaveShiftReport = async (report) => { if (currentUser && db) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftReports', report.id), report).catch(e => { if(window.showToast) window.showToast("封存報告失敗", true); throw e; }); };
+        window.fbSaveTask = async (task) => { if (currentUser && db && window.currentUnit) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', `${window.currentUnit}_tasks`, task.id), task).catch(e=>{}); };
+        window.fbUpdateTask = async (task) => { if (currentUser && db && window.currentUnit) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', `${window.currentUnit}_tasks`, task.id), task).catch(e => { if(window.showToast) window.showToast("更新失敗", true); }); };
+        window.fbAppendAuditLog = async (taskId, logData) => { if (currentUser && db && window.currentUnit) await addDoc(collection(db, 'artifacts', appId, 'public', 'data', `${window.currentUnit}_tasks`, taskId, 'auditLogs'), logData).catch(e=>{}); };
+        window.fbDeleteTask = async (taskId) => { if (currentUser && db && window.currentUnit) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', `${window.currentUnit}_tasks`, taskId)).catch(e => { if(window.showToast) window.showToast("刪除失敗", true); }); };
+        window.fbSaveCategories = async (newCategories) => { if (currentUser && db && window.currentUnit) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', `${window.currentUnit}_categoriesData`), { list: newCategories }).catch(e=>{}); };
+        window.fbSaveQuickNames = async (names) => { if (currentUser && db && window.currentUnit) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', `${window.currentUnit}_quickNamesData`), { list: names }).catch(e=>{}); };
+        window.fbSaveAssignees = async (list) => { if (currentUser && db && window.currentUnit) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', `${window.currentUnit}_assigneesData`), { list: list }).catch(e=>{}); }; 
+        window.fbSaveZones = async (list) => { if (currentUser && db && window.currentUnit) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', `${window.currentUnit}_zonesData`), { list: list }).catch(e=>{}); }; 
+        window.fbSaveShiftReport = async (report) => { if (currentUser && db && window.currentUnit) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', `${window.currentUnit}_shiftReports`, report.id), report).catch(e => { if(window.showToast) window.showToast("封存報告失敗", true); throw e; }); };
     </script>
 </body>
 </html>
