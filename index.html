@@ -27,10 +27,16 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;700;900&display=swap');
+        
+        /* 徹底解決 iOS 左右晃動與橡皮筋回彈問題 */
         html, body {
-            max-width: 100%;
-            overflow-x: hidden; /* 強制防止整個網頁左右滑動 */
+            width: 100vw;
+            max-width: 100vw;
+            overflow-x: hidden !important;
+            overscroll-behavior-x: none;
+            overscroll-behavior-y: none; /* 防止整個網頁上下拉動回彈，更像原生 App */
         }
+        
         body {
             font-family: 'Noto Sans', sans-serif;
             background-color: #f5f5f5;
@@ -46,9 +52,9 @@
         .markdown-body strong { font-weight: bold; }
     </style>
 </head>
-<body class="text-gray-800 h-screen flex flex-col overflow-hidden max-w-md mx-auto bg-white shadow-xl relative w-full">
+<body class="text-gray-800 h-screen flex flex-col overflow-hidden mx-auto bg-white shadow-xl relative w-full">
 
-    <div id="identityModal" class="fixed inset-0 bg-black bg-opacity-70 z-[100] hidden flex-col justify-center items-center px-4 backdrop-blur-sm">
+    <div id="identityModal" class="fixed inset-0 bg-black bg-opacity-70 z-[100] hidden flex-col justify-center items-center px-4 backdrop-blur-sm w-full">
         <div class="bg-white rounded-2xl w-full max-w-sm modal-enter overflow-hidden flex flex-col p-6 text-center shadow-2xl border border-gray-100">
             <div class="w-16 h-16 bg-[#e6f0f7] text-ikea-blue rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-inner">
                 <i class="fa-solid fa-id-badge"></i>
@@ -70,7 +76,8 @@
         </div>
     </div>
 
-    <div id="toastContainer" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 w-max max-w-[90%] text-center pointer-events-none"></div>
+    <!-- 修正：拿掉 w-max，改用 w-[90%] 避免提示框撐破手機螢幕導致左右晃動 -->
+    <div id="toastContainer" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 w-[90%] max-w-sm text-center pointer-events-none"></div>
 
     <header class="bg-ikea-blue text-white p-4 shadow-md flex justify-between items-center z-10 shrink-0 border-b-4 border-ikea-yellow w-full">
         <div>
@@ -117,9 +124,8 @@
         <i class="fa-solid fa-plus"></i>
     </button>
 
-    <!-- 移除了多餘的 w-full，加入 overflow-x-hidden 防止滑動 -->
-    <div id="addModal" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden flex-col justify-end max-w-md mx-auto">
-        <div class="bg-white rounded-t-2xl p-5 h-[85vh] flex flex-col modal-enter overflow-x-hidden">
+    <div id="addModal" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden flex-col justify-end max-w-md mx-auto w-full">
+        <div class="bg-white rounded-t-2xl p-5 h-[85vh] flex flex-col modal-enter w-full max-w-full overflow-x-hidden">
             <div class="flex justify-between items-center mb-4 shrink-0">
                 <h2 class="text-xl font-black text-ikea-blue" id="modalTitle">新增交接事項</h2>
                 <button onclick="closeAddModal()" class="text-gray-500 p-2 text-xl hover:text-gray-800"><i class="fa-solid fa-xmark"></i></button>
@@ -225,9 +231,8 @@
         </div>
     </div>
 
-    <!-- 加入 overflow-x-hidden -->
-    <div id="detailModal" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden flex-col justify-end max-w-md mx-auto">
-        <div class="bg-white rounded-t-2xl h-[90vh] flex flex-col modal-enter relative overflow-x-hidden">
+    <div id="detailModal" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden flex-col justify-end max-w-md mx-auto w-full">
+        <div class="bg-white rounded-t-2xl h-[90vh] flex flex-col modal-enter relative overflow-x-hidden w-full max-w-full">
             
             <div id="detailHeader" class="h-40 bg-gray-200 rounded-t-2xl relative overflow-hidden shrink-0">
                 <img id="detailImage" class="w-full h-full object-cover hidden">
@@ -293,8 +298,7 @@
         </div>
     </div>
 
-    <!-- 加入 overflow-x-hidden -->
-    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex-col justify-center items-center px-4">
+    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex-col justify-center items-center px-4 w-full">
         <div class="bg-white rounded-2xl w-full max-w-sm modal-enter overflow-hidden flex flex-col max-h-[85vh]">
             <div class="flex justify-between items-center p-4 border-b bg-gray-50 shrink-0">
                 <h2 class="text-lg font-black text-ikea-blue"><i class="fa-solid fa-gear mr-2"></i>系統設定</h2>
@@ -378,9 +382,8 @@
         </div>
     </div>
 
-    <!-- 加入 overflow-x-hidden -->
-    <div id="aiModal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden flex-col justify-end max-w-md mx-auto">
-        <div class="bg-white rounded-t-2xl h-[70vh] flex flex-col modal-enter relative overflow-x-hidden">
+    <div id="aiModal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden flex-col justify-end max-w-md mx-auto w-full">
+        <div class="bg-white rounded-t-2xl h-[70vh] flex flex-col modal-enter relative overflow-x-hidden w-full max-w-full">
             <div class="flex justify-between items-center p-4 border-b shrink-0 bg-purple-50 rounded-t-2xl">
                 <h2 class="text-lg font-black text-purple-800"><i class="fa-solid fa-sparkles mr-2"></i>AI 任務助理</h2>
                 <button onclick="closeAIAssistant()" class="text-purple-500 p-2 text-xl hover:text-purple-700"><i class="fa-solid fa-xmark"></i></button>
@@ -411,9 +414,8 @@
         </div>
     </div>
 
-    <!-- 加入 overflow-x-hidden -->
-    <div id="shiftReportsModal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden flex-col justify-end max-w-md mx-auto">
-        <div class="bg-white rounded-t-2xl h-[85vh] flex flex-col modal-enter relative overflow-x-hidden">
+    <div id="shiftReportsModal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden flex-col justify-end max-w-md mx-auto w-full">
+        <div class="bg-white rounded-t-2xl h-[85vh] flex flex-col modal-enter relative overflow-x-hidden w-full max-w-full">
             <div class="flex justify-between items-center p-4 border-b shrink-0 bg-[#e6f0f7] rounded-t-2xl">
                 <h2 class="text-lg font-black text-ikea-blue"><i class="fa-solid fa-file-invoice mr-2"></i>歷史交班紀錄</h2>
                 <button onclick="closeShiftReportsModal()" class="text-ikea-blue opacity-50 p-2 text-xl hover:opacity-100"><i class="fa-solid fa-xmark"></i></button>
@@ -424,7 +426,7 @@
         </div>
     </div>
 
-    <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex-col justify-center items-center px-4">
+    <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex-col justify-center items-center px-4 w-full">
         <div class="bg-white rounded-2xl w-full max-w-sm modal-enter overflow-hidden flex flex-col p-5 text-center">
             <div class="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
                 <i class="fa-solid fa-triangle-exclamation"></i>
@@ -1141,14 +1143,14 @@
         function openShiftReportsModal() { document.getElementById('shiftReportsModal').classList.remove('hidden'); document.getElementById('shiftReportsModal').classList.add('flex'); if (window.renderShiftReportsList) window.renderShiftReportsList(); }
         function closeShiftReportsModal() { document.getElementById('shiftReportsModal').classList.add('hidden'); document.getElementById('shiftReportsModal').classList.remove('flex'); }
 
+        /* ====== 修復：使用正確的 API Model Name 與格式 ====== */
         async function callGeminiAPI(prompt, systemInstruction = "") {
             const aiLoading = document.getElementById('aiLoading'), aiResultContainer = document.getElementById('aiResultContainer'), aiResult = document.getElementById('aiResult');
             aiLoading.classList.remove('hidden'); aiLoading.classList.add('flex'); aiResultContainer.classList.add('hidden');
             
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-            
-            // 修正 Google API 對系統設定的參數要求格式 (使用 system_instruction)
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
+            
             if (systemInstruction) {
                 payload.system_instruction = { parts: [{ text: systemInstruction }] };
             }
@@ -1211,15 +1213,16 @@
             callGeminiAPI(`請幫我整理交班報告，以下是目前所有未完成的任務：\n\n${taskData}`, `你是一位專業的賣場交班助理。請根據提供的未完成任務，產生一份給『下一班次』的正式交班報告，務必總結最近動態的處理進度。`);
         }
 
+        /* ====== 修復：使用正確的 API Model Name 與格式 ====== */
         async function refineTaskDescWithAI() {
             const descInput = document.getElementById('taskDesc'), btn = document.getElementById('aiRefineBtn');
             const originalText = descInput.value.trim();
             if (!originalText) { showToast("請先輸入或語音錄製詳細內容！"); return; }
             
             const originalBtnHTML = btn.innerHTML; btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 整理中...`; btn.disabled = true;
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
             
-            // 修正 Google API 參數格式
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+            
             const payload = {
                 contents: [{ parts: [{ text: `請幫我把這段語音紀錄整理得更清楚：\n\n${originalText}` }] }],
                 system_instruction: { parts: [{ text: "你是一位細心的門市店長助理。請將使用者口語化的語音紀錄整理成條理清晰的交接說明，直接輸出整理後的文字。" }] }
@@ -1332,7 +1335,6 @@
         }
 
         function renderAssignees() {
-            // 將按鈕點擊後寫入 taskAssignee 輸入框
             const quickSelect = document.getElementById('assigneeQuickSelect');
             if (quickSelect) {
                 quickSelect.innerHTML = assignees.map(a => `<button type="button" onclick="document.getElementById('taskAssignee').value='${escapeHTML(a)}'" class="px-3 py-1 bg-[#e6f0f7] text-ikea-blue border border-blue-200 rounded-full text-xs font-bold active:scale-95 transition shadow-sm">${escapeHTML(a)}</button>`).join('');
