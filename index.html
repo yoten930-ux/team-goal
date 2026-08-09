@@ -192,7 +192,8 @@
                         <label class="block text-sm font-bold text-gray-700 mb-1 flex justify-between items-center">
                             <span>詳細內容</span>
                             <div class="flex gap-2">
-                                <button type="button" id="micBtn" onclick="toggleVoiceInput('taskDesc')" class="text-ikea-blue flex items-center gap-1 text-xs bg-[#e6f0f7] px-2 py-1 rounded border border-blue-100 active:bg-blue-100 transition font-bold">
+                                <!-- 更新：加入 this 傳遞按鈕元件 -->
+                                <button type="button" id="micBtn" onclick="toggleVoiceInput('taskDesc', this)" class="text-ikea-blue flex items-center gap-1 text-xs bg-[#e6f0f7] px-2 py-1 rounded border border-blue-100 active:bg-blue-100 transition font-bold">
                                     <i class="fa-solid fa-microphone"></i> 說話
                                 </button>
                                 <button type="button" id="aiRefineBtn" onclick="refineTaskDescWithAI()" class="text-purple-600 flex items-center gap-1 text-xs bg-purple-50 px-2 py-1 rounded border border-purple-100 active:bg-purple-100 transition font-bold" title="AI 自動整理口語內容">
@@ -201,7 +202,7 @@
                             </div>
                         </label>
                         <textarea id="taskDesc" rows="3" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none" placeholder="描述需要交接的細節..."></textarea>
-                        <p id="voiceStatus" class="text-xs text-red-500 hidden mt-1 font-bold">正在聆聽中... (請說話)</p>
+                        <p id="voiceStatus" class="text-xs text-red-500 hidden mt-1 font-bold">正在聆聽中... (再次點擊按鈕可手動停止)</p>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
@@ -296,7 +297,8 @@
                         <h3 class="font-bold text-gray-800 text-sm mb-2"><i class="fa-solid fa-list-check mr-1 text-ikea-blue"></i> 任務進度與留言</h3>
                         <div id="progressList" class="flex-1 overflow-y-auto no-scrollbar mb-2 space-y-2 pb-2"></div>
                         <div class="flex gap-2 shrink-0">
-                            <button type="button" onclick="toggleVoiceInput('progressInput')" class="text-ikea-blue bg-[#e6f0f7] w-10 h-10 rounded-lg border border-blue-100 active:bg-blue-100 transition flex items-center justify-center shrink-0">
+                            <!-- 更新：加入 this 傳遞按鈕元件 -->
+                            <button type="button" onclick="toggleVoiceInput('progressInput', this)" class="text-ikea-blue bg-[#e6f0f7] w-10 h-10 rounded-lg border border-blue-100 active:bg-blue-100 transition flex items-center justify-center shrink-0">
                                 <i class="fa-solid fa-microphone"></i>
                             </button>
                             <input type="text" id="progressInput" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none" placeholder="回報進度或補充說明...">
@@ -596,6 +598,9 @@
             document.getElementById('identityNameInput').value = name;
         }
 
+        // ==========================================
+        // 核心更新：加入「一鍵開關」功能與視覺提示
+        // ==========================================
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition = null;
         if (SpeechRecognition) {
@@ -605,34 +610,70 @@
             recognition.lang = 'zh-TW';
         }
 
-        function toggleVoiceInput(targetInputId) {
+        function toggleVoiceInput(targetInputId, btnElement) {
             if (!recognition) { showToast("瀏覽器不支援語音輸入", true); return; }
-            if (isRecognizing) return; 
             
             const targetInput = document.getElementById(targetInputId);
             const statusText = document.getElementById('voiceStatus');
-            if (statusText) statusText.classList.remove('hidden');
 
-            try { recognition.start(); isRecognizing = true; } catch (e) { console.warn(e); }
+            // 如果正在錄音中，就手動停止
+            if (isRecognizing) {
+                recognition.stop(); // 停止後會自動觸發 onend 去恢復按鈕 UI
+                return; 
+            }
+
+            try { 
+                recognition.start(); 
+            } catch (e) { 
+                console.warn("錄音啟動失敗:", e); 
+                return;
+            }
+
+            // 開始錄音：改變按鈕外觀變成「錄音中 / 停止」
+            isRecognizing = true;
+            btnElement.dataset.originalHtml = btnElement.innerHTML; // 記住原本長怎樣
+            btnElement.classList.remove('bg-[#e6f0f7]', 'text-ikea-blue');
+            btnElement.classList.add('bg-red-100', 'text-red-600', 'animate-pulse');
+            
+            // 根據不同位置的按鈕顯示不同內容
+            if (targetInputId === 'taskDesc') {
+                btnElement.innerHTML = '<i class="fa-solid fa-stop"></i> 停止錄音';
+                if (statusText) statusText.classList.remove('hidden');
+            } else {
+                btnElement.innerHTML = '<i class="fa-solid fa-stop"></i>';
+            }
 
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
-                if(targetInput.tagName === 'TEXTAREA') targetInput.value += (targetInput.value ? '\n' : '') + transcript;
-                else targetInput.value += transcript;
-                if (statusText) statusText.classList.add('hidden');
+                if(targetInput.tagName === 'TEXTAREA') {
+                    targetInput.value += (targetInput.value ? '\n' : '') + transcript;
+                } else {
+                    targetInput.value += transcript;
+                }
             };
             
             recognition.onerror = (event) => {
-                if (statusText) statusText.classList.add('hidden');
                 let msg = "語音辨識失敗";
                 if (event.error === 'not-allowed') msg = "請允許瀏覽器使用麥克風權限";
-                else if (event.error === 'no-speech') msg = "沒有偵測到語音，請再試一次";
+                else if (event.error === 'no-speech') msg = "沒有偵測到語音";
                 else if (event.error === 'network') msg = "語音服務網路連線失敗";
-                showToast(msg, true);
-                isRecognizing = false;
+                else if (event.error === 'aborted') msg = ""; // 手動停止會觸發 aborted，不用跳錯誤
+                
+                if (msg) showToast(msg, true);
             };
             
-            recognition.onend = () => { if (statusText) statusText.classList.add('hidden'); isRecognizing = false; };
+            // 無論是自動結束還是手動停止，都會觸發 onend，我們在這裡把 UI 恢復原狀
+            recognition.onend = () => { 
+                isRecognizing = false; 
+                btnElement.classList.remove('bg-red-100', 'text-red-600', 'animate-pulse');
+                btnElement.classList.add('bg-[#e6f0f7]', 'text-ikea-blue');
+                if (btnElement.dataset.originalHtml) {
+                    btnElement.innerHTML = btnElement.dataset.originalHtml;
+                }
+                if (statusText && targetInputId === 'taskDesc') {
+                    statusText.classList.add('hidden');
+                }
+            };
         }
 
         function previewImage(event) {
