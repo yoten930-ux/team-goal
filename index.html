@@ -28,6 +28,7 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;700;900&display=swap');
         
+        /* 徹底鎖死底層，防止 iOS 橡皮筋回彈與左右晃動，限制僅允許上下滑動 */
         html, body {
             overscroll-behavior: none;
             -webkit-overflow-scrolling: auto;
@@ -162,13 +163,17 @@
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1">指派給 (負責人 / 班別)</label>
                         <input type="text" id="taskAssignee" class="w-full border border-gray-300 rounded-lg p-3 mb-2 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none bg-white" placeholder="點擊下方標籤，或直接輸入名稱">
-                        <div id="assigneeQuickSelect" class="flex flex-wrap gap-2"></div>
+                        <div id="assigneeQuickSelect" class="flex flex-wrap gap-2">
+                            <!-- JS 動態生成快速選擇標籤 -->
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-1">任務區域 (Zone)</label>
-                            <select id="taskZone" class="w-full border border-gray-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none"></select>
+                            <select id="taskZone" class="w-full border border-gray-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none">
+                                <!-- JS 動態產生選項 -->
+                            </select>
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-1">任務屬性</label>
@@ -190,7 +195,9 @@
                             <span>任務分類</span>
                             <button type="button" onclick="openSettingsModal()" class="text-xs text-ikea-blue bg-[#e6f0f7] px-2 py-1 rounded-md border border-blue-100 hover:bg-blue-100 transition"><i class="fa-solid fa-pen"></i> 自訂分類</button>
                         </label>
-                        <div id="dynamicCategorySelection" class="flex flex-wrap gap-2"></div>
+                        <div id="dynamicCategorySelection" class="flex flex-wrap gap-2">
+                            <!-- JS 動態生成 -->
+                        </div>
                     </div>
 
                     <div>
@@ -449,7 +456,6 @@
         var selectedImageBase64 = null;
         var currentUserRole = 'manager'; 
         
-        // 恢復：三個單位分流的變數
         var currentUserName = localStorage.getItem('teamBoardUserName') || '';
         var currentUnit = localStorage.getItem('teamBoardUserUnit') || '';
 
@@ -538,7 +544,6 @@
         });
 
         function checkUserIdentity() {
-            // 恢復：必須同時確認姓名與單位
             if (!currentUserName || !currentUnit) {
                 document.getElementById('identityModal').classList.remove('hidden');
                 document.getElementById('identityModal').classList.add('flex');
@@ -631,7 +636,6 @@
                 if (statusText) statusText.classList.add('hidden');
             };
             
-            // 修復：語音辨識錯誤處理，精準提示原因
             recognition.onerror = (event) => {
                 if (statusText) statusText.classList.add('hidden');
                 let msg = "語音辨識失敗";
@@ -1166,8 +1170,8 @@
             const aiLoading = document.getElementById('aiLoading'), aiResultContainer = document.getElementById('aiResultContainer'), aiResult = document.getElementById('aiResult');
             aiLoading.classList.remove('hidden'); aiLoading.classList.add('flex'); aiResultContainer.classList.add('hidden');
             
-            // 修復：使用最穩定的 gemini-1.5-flash
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+            // 修正為 gemini-flash-latest
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             
             if (systemInstruction) {
@@ -1244,8 +1248,8 @@
 
             const originalBtnHTML = btn.innerHTML; btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 整理中...`; btn.disabled = true;
             
-            // 修復：使用最穩定的 gemini-1.5-flash
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+            // 修正為 gemini-flash-latest
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
             
             const payload = {
                 contents: [{ parts: [{ text: `請幫我把這段語音紀錄整理得更清楚：\n\n${originalText}` }] }],
@@ -1457,7 +1461,7 @@
         if (Object.keys(firebaseConfig).length > 0) {
             app = initializeApp(firebaseConfig);
             db = initializeFirestore(app, { localCache: memoryLocalCache() });
-            window.db = db; // 暴露給全域檢查使用
+            window.db = db; 
             auth = getAuth(app);
             
             const initAuth = async () => {
