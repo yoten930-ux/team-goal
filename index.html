@@ -2,7 +2,8 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 加入 viewport-fit=cover 適應 iPhone 瀏海螢幕，並嚴格禁止縮放 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>IKEA 團隊交接看板</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -28,18 +29,13 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;700;900&display=swap');
         
-        /* 徹底解決 iOS 左右晃動與橡皮筋回彈問題 */
+        /* 徹底鎖死底層，防止 iOS 橡皮筋回彈與左右晃動 */
         html, body {
-            width: 100vw;
-            max-width: 100vw;
-            overflow-x: hidden !important;
-            overscroll-behavior-x: none;
-            overscroll-behavior-y: none; /* 防止整個網頁上下拉動回彈，更像原生 App */
+            overscroll-behavior: none;
+            -webkit-overflow-scrolling: auto;
         }
-        
         body {
             font-family: 'Noto Sans', sans-serif;
-            background-color: #f5f5f5;
             -webkit-tap-highlight-color: transparent;
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -52,392 +48,381 @@
         .markdown-body strong { font-weight: bold; }
     </style>
 </head>
-<body class="text-gray-800 h-screen flex flex-col overflow-hidden mx-auto bg-white shadow-xl relative w-full">
+<!-- 將整個 body 設為 fixed 鎖死，背景改為灰色 -->
+<body class="bg-gray-200 fixed inset-0 w-full h-full overflow-hidden flex justify-center">
 
-    <div id="identityModal" class="fixed inset-0 bg-black bg-opacity-70 z-[100] hidden flex-col justify-center items-center px-4 backdrop-blur-sm w-full">
-        <div class="bg-white rounded-2xl w-full max-w-sm modal-enter overflow-hidden flex flex-col p-6 text-center shadow-2xl border border-gray-100">
-            <div class="w-16 h-16 bg-[#e6f0f7] text-ikea-blue rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-inner">
-                <i class="fa-solid fa-id-badge"></i>
-            </div>
-            <h3 class="text-xl font-bold text-gray-800 mb-2">請輸入您的姓名或代號</h3>
-            <p class="text-sm text-gray-500 mb-6">為了落實交接當責，所有任務與進度回報都將標示您的身分。</p>
-            <input type="text" id="identityNameInput" class="w-full border-2 border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none text-center font-bold text-lg mb-3" placeholder="例如：王小明、早班店長">
-            
-            <div class="mb-5">
-                <p class="text-xs text-gray-400 mb-2 text-left">或使用常用代號快速登入：</p>
-                <div id="quickNameContainer" class="flex flex-wrap gap-2 justify-center">
-                    <!-- JS 動態生成快選按鈕 -->
+    <!-- 這是虛擬的手機 App 容器，限制最大寬度並相對定位，保證絕不左右晃動 -->
+    <div class="w-full h-full max-w-md bg-white shadow-2xl relative flex flex-col overflow-hidden">
+
+        <div id="identityModal" class="absolute inset-0 bg-black bg-opacity-70 z-[100] hidden flex-col justify-center items-center px-4 backdrop-blur-sm">
+            <div class="bg-white rounded-2xl w-full max-w-sm modal-enter overflow-hidden flex flex-col p-6 text-center shadow-2xl border border-gray-100">
+                <div class="w-16 h-16 bg-[#e6f0f7] text-ikea-blue rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-inner">
+                    <i class="fa-solid fa-id-badge"></i>
                 </div>
-            </div>
-
-            <button onclick="saveIdentity()" class="w-full bg-ikea-blue text-white font-bold py-3.5 rounded-xl shadow-md hover:bg-ikea-darkblue transition active:scale-95 text-lg">
-                開始使用
-            </button>
-        </div>
-    </div>
-
-    <!-- 修正：拿掉 w-max，改用 w-[90%] 避免提示框撐破手機螢幕導致左右晃動 -->
-    <div id="toastContainer" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 w-[90%] max-w-sm text-center pointer-events-none"></div>
-
-    <header class="bg-ikea-blue text-white p-4 shadow-md flex justify-between items-center z-10 shrink-0 border-b-4 border-ikea-yellow w-full">
-        <div>
-            <h1 class="text-xl font-black tracking-wide"><i class="fa-solid fa-clipboard-list mr-2"></i>交接任務板</h1>
-            <div class="flex items-center gap-2 text-xs text-white opacity-90 mt-1 cursor-pointer bg-ikea-darkblue bg-opacity-80 px-2 py-1 rounded-full w-max hover:bg-opacity-100 transition" onclick="document.getElementById('identityModal').classList.remove('hidden'); document.getElementById('identityModal').classList.add('flex');" title="點擊修改身分">
-                <i class="fa-regular fa-user"></i> <span id="displayUserName">未登入</span>
-            </div>
-        </div>
-        <div class="flex gap-3">
-            <button onclick="toggleRole()" id="roleBtn" class="p-2 bg-ikea-yellow text-ikea-blue rounded-full w-10 h-10 flex items-center justify-center active:scale-95 transition shadow-sm text-sm font-bold" title="切換權限 (目前: 主管)">
-                <i class="fa-solid fa-user-tie"></i>
-            </button>
-            <button onclick="openSettingsModal()" class="p-2 bg-ikea-darkblue rounded-full w-10 h-10 flex items-center justify-center active:scale-95 transition" title="分類設定">
-                <i class="fa-solid fa-gear"></i>
-            </button>
-            <button onclick="openAIAssistant()" class="p-2 bg-purple-600 rounded-full w-10 h-10 flex items-center justify-center active:scale-95 transition" title="AI 助理">
-                <i class="fa-solid fa-sparkles"></i>
-            </button>
-            <button onclick="openShiftReportsModal()" class="p-2 bg-indigo-600 rounded-full w-10 h-10 flex items-center justify-center active:scale-95 transition" title="歷史交班單">
-                <i class="fa-solid fa-file-invoice"></i>
-            </button>
-        </div>
-    </header>
-
-    <div class="bg-white px-4 pt-3 pb-0 shadow-sm shrink-0 z-10 flex flex-col gap-3 w-full">
-        <div class="relative w-full">
-            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-gray-400"></i>
-            <input type="search" id="searchInput" oninput="handleSearch()" class="w-full bg-gray-100 rounded-lg pl-9 pr-3 py-2 outline-none focus:ring-2 focus:ring-ikea-blue text-sm" placeholder="搜尋任務標題、內容、回報或負責人...">
-        </div>
-        <div class="flex gap-4">
-            <button onclick="switchTab('active')" id="tabActive" class="flex-1 pb-2 text-sm font-bold text-ikea-blue border-b-2 border-ikea-blue transition">待辦與進行中</button>
-            <button onclick="switchTab('completed')" id="tabCompleted" class="flex-1 pb-2 text-sm font-bold text-gray-400 border-b-2 border-transparent transition">已完成 (歷史封存)</button>
-        </div>
-    </div>
-
-    <main class="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar p-4 bg-[#f5f5f5] pb-24 w-full" id="taskList">
-        <div class="text-center text-gray-400 mt-10" id="emptyState">
-            <i class="fa-solid fa-box-open text-4xl mb-3"></i>
-            <p>目前沒有待辦事項<br>點擊右下角新增交接任務</p>
-        </div>
-    </main>
-
-    <button onclick="openAddModal()" class="fixed bottom-6 right-6 lg:right-[calc(50%-13rem)] bg-ikea-yellow text-ikea-blue w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-2xl active:scale-90 transition z-20 hover:bg-ikea-darkyellow font-bold">
-        <i class="fa-solid fa-plus"></i>
-    </button>
-
-    <div id="addModal" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden flex-col justify-end max-w-md mx-auto w-full">
-        <div class="bg-white rounded-t-2xl p-5 h-[85vh] flex flex-col modal-enter w-full max-w-full overflow-x-hidden">
-            <div class="flex justify-between items-center mb-4 shrink-0">
-                <h2 class="text-xl font-black text-ikea-blue" id="modalTitle">新增交接事項</h2>
-                <button onclick="closeAddModal()" class="text-gray-500 p-2 text-xl hover:text-gray-800"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            
-            <div class="overflow-y-auto overflow-x-hidden no-scrollbar flex-1 pb-4 space-y-4">
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-1">任務標題</label>
-                    <input type="text" id="taskTitle" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none" placeholder="例如：補貨 A 區層架">
-                </div>
+                <h3 class="text-xl font-bold text-gray-800 mb-2">請輸入您的姓名或代號</h3>
+                <p class="text-sm text-gray-500 mb-6">為了落實交接當責，所有任務與進度回報都將標示您的身分。</p>
+                <input type="text" id="identityNameInput" class="w-full border-2 border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none text-center font-bold text-lg mb-3" placeholder="例如：王小明、早班店長">
                 
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-1">指派給 (負責人 / 班別)</label>
-                    <input type="text" id="taskAssignee" class="w-full border border-gray-300 rounded-lg p-3 mb-2 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none bg-white" placeholder="點擊下方標籤，或直接輸入名稱">
-                    <div id="assigneeQuickSelect" class="flex flex-wrap gap-2">
-                        <!-- JS 動態生成快速選擇標籤 -->
+                <div class="mb-5">
+                    <p class="text-xs text-gray-400 mb-2 text-left">或使用常用代號快速登入：</p>
+                    <div id="quickNameContainer" class="flex flex-wrap gap-2 justify-center">
+                        <!-- JS 動態生成快選按鈕 -->
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">任務區域 (Zone)</label>
-                        <select id="taskZone" class="w-full border border-gray-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none">
-                            <!-- JS 動態產生選項 -->
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">任務屬性</label>
-                        <div class="flex flex-col gap-2 mt-2">
-                            <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                                <input type="checkbox" id="taskIsManager" class="w-4 h-4 text-ikea-blue rounded focus:ring-ikea-blue" onchange="handleManagerToggle()">
-                                <span class="font-bold text-red-600">👑 主管交辦</span>
-                            </label>
-                            <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                                <input type="checkbox" id="taskRequireProof" class="w-4 h-4 text-ikea-blue rounded focus:ring-ikea-blue">
-                                <span>📸 需照片完工證明</span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2 flex justify-between items-center">
-                        <span>任務分類</span>
-                        <button type="button" onclick="openSettingsModal()" class="text-xs text-ikea-blue bg-[#e6f0f7] px-2 py-1 rounded-md border border-blue-100 hover:bg-blue-100 transition"><i class="fa-solid fa-pen"></i> 自訂分類</button>
-                    </label>
-                    <div id="dynamicCategorySelection" class="flex flex-wrap gap-2">
-                        <!-- JS 動態生成 -->
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-1 flex justify-between items-center">
-                        <span>詳細內容</span>
-                        <div class="flex gap-2">
-                            <button type="button" id="micBtn" onclick="toggleVoiceInput('taskDesc')" class="text-ikea-blue flex items-center gap-1 text-xs bg-[#e6f0f7] px-2 py-1 rounded border border-blue-100 active:bg-blue-100 transition font-bold">
-                                <i class="fa-solid fa-microphone"></i> 說話
-                            </button>
-                            <button type="button" id="aiRefineBtn" onclick="refineTaskDescWithAI()" class="text-purple-600 flex items-center gap-1 text-xs bg-purple-50 px-2 py-1 rounded border border-purple-100 active:bg-purple-100 transition font-bold" title="AI 自動整理口語內容">
-                                <i class="fa-solid fa-wand-magic-sparkles"></i> AI 整理
-                            </button>
-                        </div>
-                    </label>
-                    <textarea id="taskDesc" rows="3" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none" placeholder="描述需要交接的細節..."></textarea>
-                    <p id="voiceStatus" class="text-xs text-red-500 hidden mt-1 font-bold">正在聆聽中... (請說話)</p>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">重要程度</label>
-                        <select id="taskPriority" class="w-full border border-gray-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none">
-                            <option value="3">🔥 緊急 (最優先)</option>
-                            <option value="2" selected>⚡ 一般</option>
-                            <option value="1">🌱 不急 (有空做)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">截止日期</label>
-                        <input type="date" id="taskDueDate" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-1">上傳現場照片</label>
-                    <div class="flex items-center justify-center w-full">
-                        <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 relative overflow-hidden">
-                            <div class="flex flex-col items-center justify-center pt-5 pb-6" id="uploadPlaceholder">
-                                <i class="fa-solid fa-camera text-3xl text-gray-400 mb-2"></i>
-                                <p class="text-sm text-gray-500 font-medium">點擊拍照或選擇照片</p>
-                            </div>
-                            <img id="imagePreview" class="absolute inset-0 w-full h-full object-cover hidden">
-                            <input type="file" id="taskImage" class="hidden" accept="image/*" onchange="previewImage(event)" />
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pt-4 border-t shrink-0">
-                <button onclick="saveTask()" class="w-full bg-ikea-blue text-white font-bold py-3 rounded-xl active:bg-ikea-darkblue transition text-lg shadow-md tracking-widest">
-                    儲存任務
+                <button onclick="saveIdentity()" class="w-full bg-ikea-blue text-white font-bold py-3.5 rounded-xl shadow-md hover:bg-ikea-darkblue transition active:scale-95 text-lg">
+                    開始使用
                 </button>
             </div>
         </div>
-    </div>
 
-    <div id="detailModal" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden flex-col justify-end max-w-md mx-auto w-full">
-        <div class="bg-white rounded-t-2xl h-[90vh] flex flex-col modal-enter relative overflow-x-hidden w-full max-w-full">
-            
-            <div id="detailHeader" class="h-40 bg-gray-200 rounded-t-2xl relative overflow-hidden shrink-0">
-                <img id="detailImage" class="w-full h-full object-cover hidden">
-                <div id="detailNoImage" class="w-full h-full flex items-center justify-center bg-[#e6f0f7] text-[#99c2e0] text-5xl">
-                    <i class="fa-solid fa-image"></i>
+        <div id="toastContainer" class="absolute top-4 left-1/2 transform -translate-x-1/2 z-[110] flex flex-col gap-2 w-[90%] max-w-sm text-center pointer-events-none"></div>
+
+        <header class="bg-ikea-blue text-white p-4 shadow-md flex justify-between items-center z-10 shrink-0 border-b-4 border-ikea-yellow w-full">
+            <div>
+                <h1 class="text-xl font-black tracking-wide"><i class="fa-solid fa-clipboard-list mr-2"></i>交接任務板</h1>
+                <div class="flex items-center gap-2 text-xs text-white opacity-90 mt-1 cursor-pointer bg-ikea-darkblue bg-opacity-80 px-2 py-1 rounded-full w-max hover:bg-opacity-100 transition" onclick="document.getElementById('identityModal').classList.remove('hidden'); document.getElementById('identityModal').classList.add('flex');" title="點擊修改身分">
+                    <i class="fa-regular fa-user"></i> <span id="displayUserName">未登入</span>
                 </div>
-                <div class="absolute top-4 right-4 flex gap-2">
-                    <button onclick="openEditModal()" class="bg-[#e6f0f7] bg-opacity-90 text-ikea-blue rounded-full w-8 h-8 flex items-center justify-center hover:bg-blue-200 transition shadow" title="編輯任務"><i class="fa-solid fa-pen text-sm"></i></button>
-                    <button onclick="deleteCurrentTask()" class="bg-red-500 bg-opacity-90 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600 transition shadow" title="刪除任務"><i class="fa-solid fa-trash-can text-sm"></i></button>
-                    <button onclick="closeDetailModal()" class="bg-black bg-opacity-50 text-white rounded-full w-8 h-8 flex items-center justify-center shadow"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <div id="detailPriorityBadge" class="absolute bottom-3 left-4 px-3 py-1 rounded-full text-xs font-bold text-white shadow tracking-wide"></div>
             </div>
+            <div class="flex gap-3">
+                <button onclick="toggleRole()" id="roleBtn" class="p-2 bg-ikea-yellow text-ikea-blue rounded-full w-10 h-10 flex items-center justify-center active:scale-95 transition shadow-sm text-sm font-bold" title="切換權限 (目前: 主管)">
+                    <i class="fa-solid fa-user-tie"></i>
+                </button>
+                <button onclick="openSettingsModal()" class="p-2 bg-ikea-darkblue rounded-full w-10 h-10 flex items-center justify-center active:scale-95 transition" title="分類設定">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+                <button onclick="openAIAssistant()" class="p-2 bg-purple-600 rounded-full w-10 h-10 flex items-center justify-center active:scale-95 transition" title="AI 助理">
+                    <i class="fa-solid fa-sparkles"></i>
+                </button>
+                <button onclick="openShiftReportsModal()" class="p-2 bg-indigo-600 rounded-full w-10 h-10 flex items-center justify-center active:scale-95 transition" title="歷史交班單">
+                    <i class="fa-solid fa-file-invoice"></i>
+                </button>
+            </div>
+        </header>
 
-            <div class="p-5 overflow-y-auto overflow-x-hidden no-scrollbar flex-1 pb-24">
-                <h2 id="detailTitle" class="text-2xl font-black mb-2 text-gray-800"></h2>
-                <div class="flex text-sm text-gray-500 mb-4 gap-4 items-center flex-wrap">
-                    <span id="detailCategoryBadge"></span>
-                    <span id="detailAssigneeBadge" class="hidden px-2 py-1 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-full text-xs font-bold"><i class="fa-solid fa-user-astronaut mr-1"></i> <span id="detailAssigneeText"></span></span>
-                    <span class="font-medium"><i class="fa-regular fa-calendar mr-1"></i> <span id="detailDueDate"></span></span>
-                </div>
-                
-                <div class="mb-4 bg-white p-3 rounded-xl border border-gray-200 flex justify-between items-center shadow-sm">
-                    <span class="text-sm font-bold text-gray-700">任務狀態</span>
-                    <div class="flex gap-1 flex-wrap justify-end" id="statusControlGroup">
-                        <button onclick="changeTaskStatus('pending')" id="btnStatusPending" class="px-3 py-1.5 rounded-lg text-xs font-bold border transition">未處理</button>
-                        <button onclick="changeTaskStatus('in_progress')" id="btnStatusProgress" class="px-3 py-1.5 rounded-lg text-xs font-bold border transition">處理中</button>
-                        <button onclick="attemptReviewTask()" id="btnStatusReview" class="px-3 py-1.5 rounded-lg text-xs font-bold border transition hidden">待主管確認</button>
-                        <button onclick="attemptCompleteTask()" id="btnStatusCompleted" class="px-3 py-1.5 rounded-lg text-xs font-bold border transition">已完成</button>
-                        <input type="file" id="proofUploadInput" class="hidden" accept="image/*" onchange="uploadCompletionProof(event)" />
-                    </div>
-                </div>
-
-                <div id="completionProofContainer" class="hidden mb-4 p-3 bg-green-50 border border-green-200 rounded-xl">
-                    <h3 class="text-sm font-bold text-green-800 mb-2"><i class="fa-solid fa-check-circle mr-1"></i>完工證明</h3>
-                    <img id="completionProofImage" class="w-full h-32 object-cover rounded-lg border border-green-300">
-                </div>
-
-                <p id="detailDesc" class="text-gray-700 whitespace-pre-wrap bg-gray-50 p-3 rounded-lg leading-relaxed"></p>
-
-                <!-- 簽收區塊 -->
-                <div class="mt-4 border-t pt-4 border-gray-100">
-                    <div class="flex justify-between items-center mb-2">
-                        <h3 class="font-bold text-gray-800 text-sm"><i class="fa-solid fa-eye mr-1 text-ikea-blue"></i> 任務簽收 / 已知悉</h3>
-                        <button onclick="acknowledgeTask()" class="text-xs bg-[#e6f0f7] text-ikea-blue border border-blue-200 hover:bg-blue-100 px-3 py-1.5 rounded-full font-bold transition active:scale-95 shadow-sm">我已知悉接手</button>
-                    </div>
-                    <div id="ackList" class="flex flex-wrap gap-2 text-xs"></div>
-                </div>
-
-                <!-- 進度回報區塊 -->
-                <div class="mt-4 border-t pt-4 border-gray-100 flex-1 flex flex-col">
-                    <h3 class="font-bold text-gray-800 text-sm mb-2"><i class="fa-solid fa-list-check mr-1 text-ikea-blue"></i> 任務進度與留言</h3>
-                    <div id="progressList" class="flex-1 overflow-y-auto no-scrollbar mb-2 space-y-2 pb-2"></div>
-                    <div class="flex gap-2 shrink-0">
-                        <button type="button" onclick="toggleVoiceInput('progressInput')" class="text-ikea-blue bg-[#e6f0f7] w-10 h-10 rounded-lg border border-blue-100 active:bg-blue-100 transition flex items-center justify-center shrink-0">
-                            <i class="fa-solid fa-microphone"></i>
-                        </button>
-                        <input type="text" id="progressInput" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none" placeholder="回報進度或補充說明...">
-                        <button onclick="addProgress()" class="bg-ikea-blue text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-ikea-darkblue transition active:scale-95 shrink-0"><i class="fa-solid fa-paper-plane"></i></button>
-                    </div>
-                </div>
+        <div class="bg-white px-4 pt-3 pb-0 shadow-sm shrink-0 z-10 flex flex-col gap-3 w-full">
+            <div class="relative w-full">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-gray-400"></i>
+                <input type="search" id="searchInput" oninput="handleSearch()" class="w-full bg-gray-100 rounded-lg pl-9 pr-3 py-2 outline-none focus:ring-2 focus:ring-ikea-blue text-sm" placeholder="搜尋任務標題、內容、回報或負責人...">
+            </div>
+            <div class="flex gap-4">
+                <button onclick="switchTab('active')" id="tabActive" class="flex-1 pb-2 text-sm font-bold text-ikea-blue border-b-2 border-ikea-blue transition">待辦與進行中</button>
+                <button onclick="switchTab('completed')" id="tabCompleted" class="flex-1 pb-2 text-sm font-bold text-gray-400 border-b-2 border-transparent transition">已完成 (歷史封存)</button>
             </div>
         </div>
-    </div>
 
-    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex-col justify-center items-center px-4 w-full">
-        <div class="bg-white rounded-2xl w-full max-w-sm modal-enter overflow-hidden flex flex-col max-h-[85vh]">
-            <div class="flex justify-between items-center p-4 border-b bg-gray-50 shrink-0">
-                <h2 class="text-lg font-black text-ikea-blue"><i class="fa-solid fa-gear mr-2"></i>系統設定</h2>
-                <button onclick="closeSettingsModal()" class="text-gray-500 p-2 text-xl hover:text-gray-800"><i class="fa-solid fa-xmark"></i></button>
+        <main class="flex-1 overflow-y-auto no-scrollbar p-4 bg-[#f5f5f5] pb-24 w-full" id="taskList">
+            <div class="text-center text-gray-400 mt-10" id="emptyState">
+                <i class="fa-solid fa-box-open text-4xl mb-3"></i>
+                <p>目前沒有待辦事項<br>點擊右下角新增交接任務</p>
             </div>
-            <div class="p-4 overflow-y-auto overflow-x-hidden no-scrollbar flex-1 space-y-6">
-                <!-- settings content -->
-                <div>
-                    <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center"><i class="fa-solid fa-tags text-ikea-blue mr-2"></i>任務分類管理</h3>
-                    <div id="categoryManagerList" class="space-y-2 mb-3">
-                        <!-- 動態渲染目前分類 -->
+        </main>
+
+        <button onclick="openAddModal()" class="absolute bottom-6 right-6 bg-ikea-yellow text-ikea-blue w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-2xl active:scale-90 transition z-20 hover:bg-ikea-darkyellow font-bold">
+            <i class="fa-solid fa-plus"></i>
+        </button>
+
+        <div id="addModal" class="absolute inset-0 bg-black bg-opacity-50 z-30 hidden flex-col justify-end">
+            <div class="bg-white rounded-t-2xl p-5 h-[85vh] flex flex-col modal-enter overflow-hidden">
+                <div class="flex justify-between items-center mb-4 shrink-0">
+                    <h2 class="text-xl font-black text-ikea-blue" id="modalTitle">新增交接事項</h2>
+                    <button onclick="closeAddModal()" class="text-gray-500 p-2 text-xl hover:text-gray-800"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                
+                <div class="overflow-y-auto no-scrollbar flex-1 pb-4 space-y-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">任務標題</label>
+                        <input type="text" id="taskTitle" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none" placeholder="例如：補貨 A 區層架">
                     </div>
-                    <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                        <label class="block text-xs font-bold text-gray-600 mb-2">新增分類</label>
-                        <div class="flex gap-2 mb-2">
-                            <input type="text" id="newCategoryName" class="flex-1 border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-ikea-blue" placeholder="分類名稱 (如: 突發狀況)">
-                            <select id="newCategoryColor" class="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-ikea-blue bg-white font-medium">
-                                <option value="purple">紫標</option>
-                                <option value="blue">藍標</option>
-                                <option value="orange">橘標</option>
-                                <option value="emerald">綠標</option>
-                                <option value="pink">粉標</option>
-                                <option value="gray">灰標</option>
+                    
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">指派給 (負責人 / 班別)</label>
+                        <input type="text" id="taskAssignee" class="w-full border border-gray-300 rounded-lg p-3 mb-2 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none bg-white" placeholder="點擊下方標籤，或直接輸入名稱">
+                        <div id="assigneeQuickSelect" class="flex flex-wrap gap-2">
+                            <!-- JS 動態生成快速選擇標籤 -->
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">任務區域 (Zone)</label>
+                            <select id="taskZone" class="w-full border border-gray-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none">
+                                <!-- JS 動態產生選項 -->
                             </select>
                         </div>
-                        <button onclick="addNewCategory()" class="w-full bg-[#e6f0f7] hover:bg-blue-100 text-ikea-blue border border-blue-200 font-bold py-2 rounded-lg transition text-sm">
-                            <i class="fa-solid fa-plus mr-1"></i> 新增
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">任務屬性</label>
+                            <div class="flex flex-col gap-2 mt-2">
+                                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                    <input type="checkbox" id="taskIsManager" class="w-4 h-4 text-ikea-blue rounded focus:ring-ikea-blue" onchange="handleManagerToggle()">
+                                    <span class="font-bold text-red-600">👑 主管交辦</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                    <input type="checkbox" id="taskRequireProof" class="w-4 h-4 text-ikea-blue rounded focus:ring-ikea-blue">
+                                    <span>📸 需照片完工證明</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2 flex justify-between items-center">
+                            <span>任務分類</span>
+                            <button type="button" onclick="openSettingsModal()" class="text-xs text-ikea-blue bg-[#e6f0f7] px-2 py-1 rounded-md border border-blue-100 hover:bg-blue-100 transition"><i class="fa-solid fa-pen"></i> 自訂分類</button>
+                        </label>
+                        <div id="dynamicCategorySelection" class="flex flex-wrap gap-2">
+                            <!-- JS 動態生成 -->
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1 flex justify-between items-center">
+                            <span>詳細內容</span>
+                            <div class="flex gap-2">
+                                <button type="button" id="micBtn" onclick="toggleVoiceInput('taskDesc')" class="text-ikea-blue flex items-center gap-1 text-xs bg-[#e6f0f7] px-2 py-1 rounded border border-blue-100 active:bg-blue-100 transition font-bold">
+                                    <i class="fa-solid fa-microphone"></i> 說話
+                                </button>
+                                <button type="button" id="aiRefineBtn" onclick="refineTaskDescWithAI()" class="text-purple-600 flex items-center gap-1 text-xs bg-purple-50 px-2 py-1 rounded border border-purple-100 active:bg-purple-100 transition font-bold" title="AI 自動整理口語內容">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> AI 整理
+                                </button>
+                            </div>
+                        </label>
+                        <textarea id="taskDesc" rows="3" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none" placeholder="描述需要交接的細節..."></textarea>
+                        <p id="voiceStatus" class="text-xs text-red-500 hidden mt-1 font-bold">正在聆聽中... (請說話)</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">重要程度</label>
+                            <select id="taskPriority" class="w-full border border-gray-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none">
+                                <option value="3">🔥 緊急 (最優先)</option>
+                                <option value="2" selected>⚡ 一般</option>
+                                <option value="1">🌱 不急 (有空做)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">截止日期</label>
+                            <input type="date" id="taskDueDate" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">上傳現場照片</label>
+                        <div class="flex items-center justify-center w-full">
+                            <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 relative overflow-hidden">
+                                <div class="flex flex-col items-center justify-center pt-5 pb-6" id="uploadPlaceholder">
+                                    <i class="fa-solid fa-camera text-3xl text-gray-400 mb-2"></i>
+                                    <p class="text-sm text-gray-500 font-medium">點擊拍照或選擇照片</p>
+                                </div>
+                                <img id="imagePreview" class="absolute inset-0 w-full h-full object-cover hidden">
+                                <input type="file" id="taskImage" class="hidden" accept="image/*" onchange="previewImage(event)" />
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t shrink-0">
+                    <button onclick="saveTask()" class="w-full bg-ikea-blue text-white font-bold py-3 rounded-xl active:bg-ikea-darkblue transition text-lg shadow-md tracking-widest">
+                        儲存任務
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="detailModal" class="absolute inset-0 bg-black bg-opacity-50 z-30 hidden flex-col justify-end">
+            <div class="bg-white rounded-t-2xl h-[90vh] flex flex-col modal-enter relative overflow-hidden">
+                
+                <div id="detailHeader" class="h-40 bg-gray-200 rounded-t-2xl relative overflow-hidden shrink-0">
+                    <img id="detailImage" class="w-full h-full object-cover hidden">
+                    <div id="detailNoImage" class="w-full h-full flex items-center justify-center bg-[#e6f0f7] text-[#99c2e0] text-5xl">
+                        <i class="fa-solid fa-image"></i>
+                    </div>
+                    <div class="absolute top-4 right-4 flex gap-2">
+                        <button onclick="openEditModal()" class="bg-[#e6f0f7] bg-opacity-90 text-ikea-blue rounded-full w-8 h-8 flex items-center justify-center hover:bg-blue-200 transition shadow" title="編輯任務"><i class="fa-solid fa-pen text-sm"></i></button>
+                        <button onclick="deleteCurrentTask()" class="bg-red-500 bg-opacity-90 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600 transition shadow" title="刪除任務"><i class="fa-solid fa-trash-can text-sm"></i></button>
+                        <button onclick="closeDetailModal()" class="bg-black bg-opacity-50 text-white rounded-full w-8 h-8 flex items-center justify-center shadow"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div id="detailPriorityBadge" class="absolute bottom-3 left-4 px-3 py-1 rounded-full text-xs font-bold text-white shadow tracking-wide"></div>
+                </div>
+
+                <div class="p-5 overflow-y-auto no-scrollbar flex-1 pb-24">
+                    <h2 id="detailTitle" class="text-2xl font-black mb-2 text-gray-800"></h2>
+                    <div class="flex text-sm text-gray-500 mb-4 gap-4 items-center flex-wrap">
+                        <span id="detailCategoryBadge"></span>
+                        <span id="detailAssigneeBadge" class="hidden px-2 py-1 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-full text-xs font-bold"><i class="fa-solid fa-user-astronaut mr-1"></i> <span id="detailAssigneeText"></span></span>
+                        <span class="font-medium"><i class="fa-regular fa-calendar mr-1"></i> <span id="detailDueDate"></span></span>
+                    </div>
+                    
+                    <div class="mb-4 bg-white p-3 rounded-xl border border-gray-200 flex justify-between items-center shadow-sm">
+                        <span class="text-sm font-bold text-gray-700">任務狀態</span>
+                        <div class="flex gap-1 flex-wrap justify-end" id="statusControlGroup">
+                            <button onclick="changeTaskStatus('pending')" id="btnStatusPending" class="px-3 py-1.5 rounded-lg text-xs font-bold border transition">未處理</button>
+                            <button onclick="changeTaskStatus('in_progress')" id="btnStatusProgress" class="px-3 py-1.5 rounded-lg text-xs font-bold border transition">處理中</button>
+                            <button onclick="attemptReviewTask()" id="btnStatusReview" class="px-3 py-1.5 rounded-lg text-xs font-bold border transition hidden">待主管確認</button>
+                            <button onclick="attemptCompleteTask()" id="btnStatusCompleted" class="px-3 py-1.5 rounded-lg text-xs font-bold border transition">已完成</button>
+                            <input type="file" id="proofUploadInput" class="hidden" accept="image/*" onchange="uploadCompletionProof(event)" />
+                        </div>
+                    </div>
+
+                    <div id="completionProofContainer" class="hidden mb-4 p-3 bg-green-50 border border-green-200 rounded-xl">
+                        <h3 class="text-sm font-bold text-green-800 mb-2"><i class="fa-solid fa-check-circle mr-1"></i>完工證明</h3>
+                        <img id="completionProofImage" class="w-full h-32 object-cover rounded-lg border border-green-300">
+                    </div>
+
+                    <p id="detailDesc" class="text-gray-700 whitespace-pre-wrap bg-gray-50 p-3 rounded-lg leading-relaxed"></p>
+
+                    <!-- 簽收區塊 -->
+                    <div class="mt-4 border-t pt-4 border-gray-100">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-bold text-gray-800 text-sm"><i class="fa-solid fa-eye mr-1 text-ikea-blue"></i> 任務簽收 / 已知悉</h3>
+                            <button onclick="acknowledgeTask()" class="text-xs bg-[#e6f0f7] text-ikea-blue border border-blue-200 hover:bg-blue-100 px-3 py-1.5 rounded-full font-bold transition active:scale-95 shadow-sm">我已知悉接手</button>
+                        </div>
+                        <div id="ackList" class="flex flex-wrap gap-2 text-xs"></div>
+                    </div>
+
+                    <!-- 進度回報區塊 -->
+                    <div class="mt-4 border-t pt-4 border-gray-100 flex-1 flex flex-col">
+                        <h3 class="font-bold text-gray-800 text-sm mb-2"><i class="fa-solid fa-list-check mr-1 text-ikea-blue"></i> 任務進度與留言</h3>
+                        <div id="progressList" class="flex-1 overflow-y-auto no-scrollbar mb-2 space-y-2 pb-2"></div>
+                        <div class="flex gap-2 shrink-0">
+                            <button type="button" onclick="toggleVoiceInput('progressInput')" class="text-ikea-blue bg-[#e6f0f7] w-10 h-10 rounded-lg border border-blue-100 active:bg-blue-100 transition flex items-center justify-center shrink-0">
+                                <i class="fa-solid fa-microphone"></i>
+                            </button>
+                            <input type="text" id="progressInput" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none" placeholder="回報進度或補充說明...">
+                            <button onclick="addProgress()" class="bg-ikea-blue text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-ikea-darkblue transition active:scale-95 shrink-0"><i class="fa-solid fa-paper-plane"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="settingsModal" class="absolute inset-0 bg-black bg-opacity-50 z-50 hidden flex-col justify-center items-center px-4">
+            <div class="bg-white rounded-2xl w-full max-w-sm modal-enter overflow-hidden flex flex-col max-h-[85vh]">
+                <div class="flex justify-between items-center p-4 border-b bg-gray-50 shrink-0">
+                    <h2 class="text-lg font-black text-ikea-blue"><i class="fa-solid fa-gear mr-2"></i>系統設定</h2>
+                    <button onclick="closeSettingsModal()" class="text-gray-500 p-2 text-xl hover:text-gray-800"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="p-4 overflow-y-auto no-scrollbar flex-1 space-y-6">
+                    <div>
+                        <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center"><i class="fa-solid fa-tags text-ikea-blue mr-2"></i>任務分類管理</h3>
+                        <div id="categoryManagerList" class="space-y-2 mb-3"></div>
+                        <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                            <label class="block text-xs font-bold text-gray-600 mb-2">新增分類</label>
+                            <div class="flex gap-2 mb-2">
+                                <input type="text" id="newCategoryName" class="flex-1 border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-ikea-blue" placeholder="分類名稱 (如: 突發狀況)">
+                                <select id="newCategoryColor" class="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-ikea-blue bg-white font-medium">
+                                    <option value="purple">紫標</option>
+                                    <option value="blue">藍標</option>
+                                    <option value="orange">橘標</option>
+                                    <option value="emerald">綠標</option>
+                                    <option value="pink">粉標</option>
+                                    <option value="gray">灰標</option>
+                                </select>
+                            </div>
+                            <button onclick="addNewCategory()" class="w-full bg-[#e6f0f7] hover:bg-blue-100 text-ikea-blue border border-blue-200 font-bold py-2 rounded-lg transition text-sm">
+                                <i class="fa-solid fa-plus mr-1"></i> 新增
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center"><i class="fa-solid fa-users text-ikea-blue mr-2"></i>快速登入代號管理</h3>
+                        <div id="quickNameManagerList" class="flex flex-wrap gap-2 mb-3"></div>
+                        <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                            <label class="block text-xs font-bold text-gray-600 mb-2">新增常用代號</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="newQuickName" class="flex-1 border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-ikea-blue" placeholder="例如: 大夜班店長">
+                                <button onclick="addNewQuickName()" class="bg-[#e6f0f7] hover:bg-blue-100 text-ikea-blue border border-blue-200 font-bold px-4 py-2 rounded-lg transition text-sm whitespace-nowrap">新增</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center"><i class="fa-solid fa-user-tag text-ikea-blue mr-2"></i>常見指派對象管理</h3>
+                        <div id="assigneeManagerList" class="flex flex-wrap gap-2 mb-3"></div>
+                        <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                            <label class="block text-xs font-bold text-gray-600 mb-2">新增指派對象</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="newAssigneeInput" class="flex-1 border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-ikea-blue" placeholder="例如: 倉管部、早班值星">
+                                <button onclick="addNewAssignee()" class="bg-[#e6f0f7] hover:bg-blue-100 text-ikea-blue border border-blue-200 font-bold px-4 py-2 rounded-lg transition text-sm whitespace-nowrap">新增</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center"><i class="fa-solid fa-map-location-dot text-ikea-blue mr-2"></i>任務區域管理</h3>
+                        <div id="zoneManagerList" class="flex flex-wrap gap-2 mb-3"></div>
+                        <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                            <label class="block text-xs font-bold text-gray-600 mb-2">新增任務區域</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="newZoneInput" class="flex-1 border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-ikea-blue" placeholder="例如: 收銀區、戶外花園">
+                                <button onclick="addNewZone()" class="bg-[#e6f0f7] hover:bg-blue-100 text-ikea-blue border border-blue-200 font-bold px-4 py-2 rounded-lg transition text-sm whitespace-nowrap">新增</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="aiModal" class="absolute inset-0 bg-black bg-opacity-50 z-40 hidden flex-col justify-end">
+            <div class="bg-white rounded-t-2xl h-[70vh] flex flex-col modal-enter relative overflow-hidden">
+                <div class="flex justify-between items-center p-4 border-b shrink-0 bg-purple-50 rounded-t-2xl">
+                    <h2 class="text-lg font-black text-purple-800"><i class="fa-solid fa-sparkles mr-2"></i>AI 任務助理</h2>
+                    <button onclick="closeAIAssistant()" class="text-purple-500 p-2 text-xl hover:text-purple-700"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                
+                <div class="p-5 overflow-y-auto no-scrollbar flex-1 space-y-4">
+                    <div class="flex gap-2 mb-4">
+                        <button onclick="summarizeTasks()" class="flex-1 bg-purple-100 hover:bg-purple-200 text-purple-700 py-2 px-3 rounded-lg text-sm font-bold transition flex flex-col items-center gap-1 shadow-sm border border-purple-200">
+                            <i class="fa-solid fa-list-check text-lg"></i>
+                            任務摘要
+                        </button>
+                        <button onclick="generateShiftReport()" class="flex-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 py-2 px-3 rounded-lg text-sm font-bold transition flex flex-col items-center gap-1 shadow-sm border border-indigo-200">
+                            <i class="fa-solid fa-file-invoice text-lg"></i>
+                            產生交班單
                         </button>
                     </div>
-                </div>
+                    
+                    <div id="aiLoading" class="hidden flex-col items-center justify-center py-10 text-purple-500">
+                        <i class="fa-solid fa-circle-notch fa-spin text-4xl mb-3"></i>
+                        <p class="font-bold font-sm mt-2">AI 思考中...</p>
+                    </div>
 
-                <div>
-                    <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center"><i class="fa-solid fa-users text-ikea-blue mr-2"></i>快速登入代號管理</h3>
-                    <div id="quickNameManagerList" class="flex flex-wrap gap-2 mb-3">
-                        <!-- 動態渲染 -->
+                    <div id="aiResultContainer" class="hidden flex-col gap-3">
+                        <div id="aiResult" class="bg-purple-50 p-4 rounded-xl text-gray-800 text-sm markdown-body shadow-inner border border-purple-100"></div>
+                        <button id="saveShiftReportBtn" onclick="saveShiftReport()" class="bg-purple-600 text-white font-bold py-2.5 rounded-lg hover:bg-purple-700 hidden text-sm shadow-md transition active:scale-95"><i class="fa-solid fa-box-archive mr-1"></i> 封存為正式交班紀錄</button>
                     </div>
-                    <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                        <label class="block text-xs font-bold text-gray-600 mb-2">新增常用代號</label>
-                        <div class="flex gap-2">
-                            <input type="text" id="newQuickName" class="flex-1 border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-ikea-blue" placeholder="例如: 大夜班店長">
-                            <button onclick="addNewQuickName()" class="bg-[#e6f0f7] hover:bg-blue-100 text-ikea-blue border border-blue-200 font-bold px-4 py-2 rounded-lg transition text-sm whitespace-nowrap">
-                                新增
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                
-                <div>
-                    <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center"><i class="fa-solid fa-user-tag text-ikea-blue mr-2"></i>常見指派對象管理</h3>
-                    <div id="assigneeManagerList" class="flex flex-wrap gap-2 mb-3">
-                        <!-- 動態渲染 -->
-                    </div>
-                    <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                        <label class="block text-xs font-bold text-gray-600 mb-2">新增指派對象</label>
-                        <div class="flex gap-2">
-                            <input type="text" id="newAssigneeInput" class="flex-1 border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-ikea-blue" placeholder="例如: 倉管部、早班值星">
-                            <button onclick="addNewAssignee()" class="bg-[#e6f0f7] hover:bg-blue-100 text-ikea-blue border border-blue-200 font-bold px-4 py-2 rounded-lg transition text-sm whitespace-nowrap">
-                                新增
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div>
-                    <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center"><i class="fa-solid fa-map-location-dot text-ikea-blue mr-2"></i>任務區域管理</h3>
-                    <div id="zoneManagerList" class="flex flex-wrap gap-2 mb-3">
-                        <!-- 動態渲染 -->
-                    </div>
-                    <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                        <label class="block text-xs font-bold text-gray-600 mb-2">新增任務區域</label>
-                        <div class="flex gap-2">
-                            <input type="text" id="newZoneInput" class="flex-1 border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-ikea-blue" placeholder="例如: 收銀區、戶外花園">
-                            <button onclick="addNewZone()" class="bg-[#e6f0f7] hover:bg-blue-100 text-ikea-blue border border-blue-200 font-bold px-4 py-2 rounded-lg transition text-sm whitespace-nowrap">
-                                新增
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    </div>
-
-    <div id="aiModal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden flex-col justify-end max-w-md mx-auto w-full">
-        <div class="bg-white rounded-t-2xl h-[70vh] flex flex-col modal-enter relative overflow-x-hidden w-full max-w-full">
-            <div class="flex justify-between items-center p-4 border-b shrink-0 bg-purple-50 rounded-t-2xl">
-                <h2 class="text-lg font-black text-purple-800"><i class="fa-solid fa-sparkles mr-2"></i>AI 任務助理</h2>
-                <button onclick="closeAIAssistant()" class="text-purple-500 p-2 text-xl hover:text-purple-700"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            
-            <div class="p-5 overflow-y-auto overflow-x-hidden no-scrollbar flex-1 space-y-4">
-                <div class="flex gap-2 mb-4">
-                    <button onclick="summarizeTasks()" class="flex-1 bg-purple-100 hover:bg-purple-200 text-purple-700 py-2 px-3 rounded-lg text-sm font-bold transition flex flex-col items-center gap-1 shadow-sm border border-purple-200">
-                        <i class="fa-solid fa-list-check text-lg"></i>
-                        任務摘要
-                    </button>
-                    <button onclick="generateShiftReport()" class="flex-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 py-2 px-3 rounded-lg text-sm font-bold transition flex flex-col items-center gap-1 shadow-sm border border-indigo-200">
-                        <i class="fa-solid fa-file-invoice text-lg"></i>
-                        產生交班單
-                    </button>
-                </div>
-                
-                <div id="aiLoading" class="hidden flex-col items-center justify-center py-10 text-purple-500">
-                    <i class="fa-solid fa-circle-notch fa-spin text-4xl mb-3"></i>
-                    <p class="font-bold font-sm mt-2">AI 思考中...</p>
-                </div>
-
-                <div id="aiResultContainer" class="hidden flex-col gap-3">
-                    <div id="aiResult" class="bg-purple-50 p-4 rounded-xl text-gray-800 text-sm markdown-body shadow-inner border border-purple-100"></div>
-                    <button id="saveShiftReportBtn" onclick="saveShiftReport()" class="bg-purple-600 text-white font-bold py-2.5 rounded-lg hover:bg-purple-700 hidden text-sm shadow-md transition active:scale-95"><i class="fa-solid fa-box-archive mr-1"></i> 封存為正式交班紀錄</button>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div id="shiftReportsModal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden flex-col justify-end max-w-md mx-auto w-full">
-        <div class="bg-white rounded-t-2xl h-[85vh] flex flex-col modal-enter relative overflow-x-hidden w-full max-w-full">
-            <div class="flex justify-between items-center p-4 border-b shrink-0 bg-[#e6f0f7] rounded-t-2xl">
-                <h2 class="text-lg font-black text-ikea-blue"><i class="fa-solid fa-file-invoice mr-2"></i>歷史交班紀錄</h2>
-                <button onclick="closeShiftReportsModal()" class="text-ikea-blue opacity-50 p-2 text-xl hover:opacity-100"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="p-4 overflow-y-auto overflow-x-hidden no-scrollbar flex-1 bg-gray-50" id="shiftReportsList">
-                <!-- 紀錄列表 -->
+        <div id="shiftReportsModal" class="absolute inset-0 bg-black bg-opacity-50 z-40 hidden flex-col justify-end">
+            <div class="bg-white rounded-t-2xl h-[85vh] flex flex-col modal-enter relative overflow-hidden">
+                <div class="flex justify-between items-center p-4 border-b shrink-0 bg-[#e6f0f7] rounded-t-2xl">
+                    <h2 class="text-lg font-black text-ikea-blue"><i class="fa-solid fa-file-invoice mr-2"></i>歷史交班紀錄</h2>
+                    <button onclick="closeShiftReportsModal()" class="text-ikea-blue opacity-50 p-2 text-xl hover:opacity-100"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="p-4 overflow-y-auto no-scrollbar flex-1 bg-gray-50" id="shiftReportsList">
+                    <!-- 紀錄列表 -->
+                </div>
             </div>
         </div>
-    </div>
 
-    <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex-col justify-center items-center px-4 w-full">
-        <div class="bg-white rounded-2xl w-full max-w-sm modal-enter overflow-hidden flex flex-col p-5 text-center">
-            <div class="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-            </div>
-            <h3 class="text-lg font-black text-gray-800 mb-2" id="confirmTitle">確認刪除？</h3>
-            <p class="text-sm text-gray-500 mb-6 font-medium" id="confirmMessage">這項操作無法復原。</p>
-            <div class="flex gap-3">
-                <button onclick="closeConfirmModal()" class="flex-1 bg-gray-100 text-gray-700 font-bold py-2.5 rounded-xl hover:bg-gray-200 transition">取消</button>
-                <button id="confirmActionBtn" class="flex-1 bg-red-500 text-white font-bold py-2.5 rounded-xl shadow-md hover:bg-red-600 transition">確定刪除</button>
+        <div id="confirmModal" class="absolute inset-0 bg-black bg-opacity-50 z-[60] hidden flex-col justify-center items-center px-4">
+            <div class="bg-white rounded-2xl w-full max-w-sm modal-enter overflow-hidden flex flex-col p-5 text-center">
+                <div class="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h3 class="text-lg font-black text-gray-800 mb-2" id="confirmTitle">確認刪除？</h3>
+                <p class="text-sm text-gray-500 mb-6 font-medium" id="confirmMessage">這項操作無法復原。</p>
+                <div class="flex gap-3">
+                    <button onclick="closeConfirmModal()" class="flex-1 bg-gray-100 text-gray-700 font-bold py-2.5 rounded-xl hover:bg-gray-200 transition">取消</button>
+                    <button id="confirmActionBtn" class="flex-1 bg-red-500 text-white font-bold py-2.5 rounded-xl shadow-md hover:bg-red-600 transition">確定刪除</button>
+                </div>
             </div>
         </div>
+
     </div>
 
     <script>
@@ -1143,12 +1128,13 @@
         function openShiftReportsModal() { document.getElementById('shiftReportsModal').classList.remove('hidden'); document.getElementById('shiftReportsModal').classList.add('flex'); if (window.renderShiftReportsList) window.renderShiftReportsList(); }
         function closeShiftReportsModal() { document.getElementById('shiftReportsModal').classList.add('hidden'); document.getElementById('shiftReportsModal').classList.remove('flex'); }
 
-        /* ====== 修復：使用正確的 API Model Name 與格式 ====== */
+        /* ====== 修復：使用最穩定的 gemini-1.5-flash 端點 ====== */
         async function callGeminiAPI(prompt, systemInstruction = "") {
             const aiLoading = document.getElementById('aiLoading'), aiResultContainer = document.getElementById('aiResultContainer'), aiResult = document.getElementById('aiResult');
             aiLoading.classList.remove('hidden'); aiLoading.classList.add('flex'); aiResultContainer.classList.add('hidden');
             
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+            // 修正為最穩定的模型字串：gemini-1.5-flash
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             
             if (systemInstruction) {
@@ -1213,15 +1199,21 @@
             callGeminiAPI(`請幫我整理交班報告，以下是目前所有未完成的任務：\n\n${taskData}`, `你是一位專業的賣場交班助理。請根據提供的未完成任務，產生一份給『下一班次』的正式交班報告，務必總結最近動態的處理進度。`);
         }
 
-        /* ====== 修復：使用正確的 API Model Name 與格式 ====== */
+        /* ====== 修復：使用最穩定的 gemini-1.5-flash 端點 ====== */
         async function refineTaskDescWithAI() {
             const descInput = document.getElementById('taskDesc'), btn = document.getElementById('aiRefineBtn');
             const originalText = descInput.value.trim();
             if (!originalText) { showToast("請先輸入或語音錄製詳細內容！"); return; }
             
+            if (!GEMINI_API_KEY || GEMINI_API_KEY === "請在這裡貼上你的Gemini金鑰") {
+                showToast("請先在程式碼中填寫 Gemini API Key！", true);
+                return;
+            }
+
             const originalBtnHTML = btn.innerHTML; btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 整理中...`; btn.disabled = true;
             
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+            // 修正為最穩定的模型字串：gemini-1.5-flash
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
             
             const payload = {
                 contents: [{ parts: [{ text: `請幫我把這段語音紀錄整理得更清楚：\n\n${originalText}` }] }],
@@ -1335,6 +1327,7 @@
         }
 
         function renderAssignees() {
+            // 將按鈕點擊後寫入 taskAssignee 輸入框
             const quickSelect = document.getElementById('assigneeQuickSelect');
             if (quickSelect) {
                 quickSelect.innerHTML = assignees.map(a => `<button type="button" onclick="document.getElementById('taskAssignee').value='${escapeHTML(a)}'" class="px-3 py-1 bg-[#e6f0f7] text-ikea-blue border border-blue-200 rounded-full text-xs font-bold active:scale-95 transition shadow-sm">${escapeHTML(a)}</button>`).join('');
