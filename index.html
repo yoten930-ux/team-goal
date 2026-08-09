@@ -28,7 +28,6 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;700;900&display=swap');
         
-        /* 徹底鎖死底層，防止 iOS 橡皮筋回彈與左右晃動，限制僅允許上下滑動 */
         html, body {
             overscroll-behavior: none;
             -webkit-overflow-scrolling: auto;
@@ -38,12 +37,9 @@
             font-family: 'Noto Sans', sans-serif;
             -webkit-tap-highlight-color: transparent;
         }
-        
-        /* 終極解法：強制所有輸入框字體為 16px，防止 iOS Safari 自動放大導致畫面左右晃動 */
         input, select, textarea {
             font-size: 16px !important;
         }
-
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { 
             -ms-overflow-style: none; 
@@ -71,7 +67,6 @@
                 <h3 class="text-xl font-bold text-gray-800 mb-2">請設定您的身分與單位</h3>
                 <p class="text-sm text-gray-500 mb-6">各單位擁有獨立的交接看板與資料庫。</p>
                 
-                <!-- 三個單位分流的下拉選單 -->
                 <div class="mb-4 text-left">
                     <label class="block text-sm font-bold text-gray-700 mb-1">請選擇您所屬的單位</label>
                     <select id="unitSelect" class="w-full border-2 border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none font-bold">
@@ -89,7 +84,8 @@
                 
                 <div class="mb-5">
                     <p class="text-xs text-gray-400 mb-2 text-left">或使用常用代號快速輸入：</p>
-                    <div id="quickNameContainer" class="flex flex-wrap gap-2 justify-center"></div>
+                    <div id="quickNameContainer" class="flex flex-wrap gap-2 justify-center">
+                    </div>
                 </div>
 
                 <button onclick="saveIdentity()" class="w-full bg-ikea-blue text-white font-bold py-3.5 rounded-xl shadow-md hover:bg-ikea-darkblue transition active:scale-95 text-lg">
@@ -440,8 +436,6 @@
     </div>
 
     <script>
-        const GEMINI_API_KEY = "AQ.Ab8RN6IdzYfdDm59-g86HpuVlJmt0Y7uyptDRf1kfPQG5TJqWg"; 
-
         var tasks = [];
         var shiftReports = [];
         var currentEditingTaskId = null;
@@ -1158,31 +1152,23 @@
         function openShiftReportsModal() { document.getElementById('shiftReportsModal').classList.remove('hidden'); document.getElementById('shiftReportsModal').classList.add('flex'); if (window.renderShiftReportsList) window.renderShiftReportsList(); }
         function closeShiftReportsModal() { document.getElementById('shiftReportsModal').classList.add('hidden'); document.getElementById('shiftReportsModal').classList.remove('flex'); }
 
-        // ==========================================
-        // 核心更新：正確的 API 模型名稱，以及 JSON.stringify 解析錯誤物件
-        // ==========================================
         async function callGeminiAPI(prompt, systemInstruction = "") {
             const aiLoading = document.getElementById('aiLoading'), aiResultContainer = document.getElementById('aiResultContainer'), aiResult = document.getElementById('aiResult');
             aiLoading.classList.remove('hidden'); aiLoading.classList.add('flex'); aiResultContainer.classList.add('hidden');
             
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
-            const payload = { contents: [{ parts: [{ text: prompt }] }] };
-            
-            // 修正：使用正確的 camelCase 參數名稱
-            if (systemInstruction) {
-                payload.systemInstruction = { parts: [{ text: systemInstruction }] };
-            }
-
             try {
-                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const response = await fetch('/.netlify/functions/gemini', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ prompt: prompt, systemInstruction: systemInstruction }) 
+                });
                 const data = await response.json();
                 
                 aiLoading.classList.add('hidden'); aiLoading.classList.remove('flex');
                 
-                if (!response.ok) {
+                if (data.error || !response.ok) {
                     console.error("完整錯誤內容:", data);
-                    // 修正：攤開 Object，避免出現 [object Object]
-                    const errMsg = typeof data.error?.message === 'string' ? data.error.message : JSON.stringify(data.error, null, 2);
+                    const errMsg = typeof data.error?.message === 'string' ? data.error.message : (data.error || JSON.stringify(data));
                     showToast("API 錯誤: " + errMsg, true);
                     return;
                 }
@@ -1199,7 +1185,7 @@
                 }
             } catch (error) { 
                 aiLoading.classList.add('hidden'); aiLoading.classList.remove('flex'); 
-                aiResult.innerHTML = "<p class='text-red-500'>發生網路錯誤。</p>"; aiResultContainer.classList.remove('hidden'); 
+                aiResult.innerHTML = "<p class='text-red-500'>發生網路錯誤或轉接站異常。</p>"; aiResultContainer.classList.remove('hidden'); 
                 console.error(error);
             }
         }
@@ -1239,29 +1225,22 @@
             const originalText = descInput.value.trim();
             if (!originalText) { showToast("請先輸入或語音錄製詳細內容！"); return; }
             
-            if (!GEMINI_API_KEY || GEMINI_API_KEY === "請在這裡貼上你的Gemini金鑰") {
-                showToast("請先在程式碼中填寫 Gemini API Key！", true);
-                return;
-            }
-
             const originalBtnHTML = btn.innerHTML; btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 整理中...`; btn.disabled = true;
-            
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
-            
-            // 修正：使用正確的 camelCase 參數名稱
-            const payload = {
-                contents: [{ parts: [{ text: `請幫我把這段語音紀錄整理得更清楚：\n\n${originalText}` }] }],
-                systemInstruction: { parts: [{ text: "你是一位細心的門市店長助理。請將使用者口語化的語音紀錄整理成條理清晰的交接說明，直接輸出整理後的文字。" }] }
-            };
 
             try {
-                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const response = await fetch('/.netlify/functions/gemini', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ 
+                        prompt: `請幫我把這段語音紀錄整理得更清楚：\n\n${originalText}`, 
+                        systemInstruction: "你是一位細心的門市店長助理。請將使用者口語化的語音紀錄整理成條理清晰的交接說明，直接輸出整理後的文字。" 
+                    }) 
+                });
                 const data = await response.json();
                 
-                if (!response.ok) {
+                if (data.error || !response.ok) {
                     console.error("完整錯誤內容:", data);
-                    // 修正：攤開 Object，避免出現 [object Object]
-                    const errMsg = typeof data.error?.message === 'string' ? data.error.message : JSON.stringify(data.error, null, 2);
+                    const errMsg = typeof data.error?.message === 'string' ? data.error.message : (data.error || JSON.stringify(data));
                     showToast("API 錯誤: " + errMsg, true);
                     return;
                 }
