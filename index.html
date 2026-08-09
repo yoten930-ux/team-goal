@@ -2,7 +2,6 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <!-- 加入 viewport-fit=cover 適應 iPhone 瀏海螢幕，並嚴格禁止縮放 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>IKEA 團隊交接看板</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -29,17 +28,23 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;700;900&display=swap');
         
-        /* 徹底鎖死底層，防止 iOS 橡皮筋回彈與左右晃動 */
+        /* 徹底鎖死底層，防止 iOS 橡皮筋回彈與左右晃動，限制僅允許上下滑動 */
         html, body {
             overscroll-behavior: none;
             -webkit-overflow-scrolling: auto;
+            touch-action: pan-y;
         }
         body {
             font-family: 'Noto Sans', sans-serif;
             -webkit-tap-highlight-color: transparent;
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .no-scrollbar { 
+            -ms-overflow-style: none; 
+            scrollbar-width: none; 
+            touch-action: pan-y;
+            overscroll-behavior-y: contain;
+        }
         .modal-enter { animation: slideUp 0.3s ease-out forwards; }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .markdown-body ul { list-style-type: disc; padding-left: 1.5rem; }
@@ -48,10 +53,8 @@
         .markdown-body strong { font-weight: bold; }
     </style>
 </head>
-<!-- 將整個 body 設為 fixed 鎖死，背景改為灰色 -->
 <body class="bg-gray-200 fixed inset-0 w-full h-full overflow-hidden flex justify-center">
 
-    <!-- 這是虛擬的手機 App 容器，限制最大寬度並相對定位，保證絕不左右晃動 -->
     <div class="w-full h-full max-w-md bg-white shadow-2xl relative flex flex-col overflow-hidden">
 
         <div id="identityModal" class="absolute inset-0 bg-black bg-opacity-70 z-[100] hidden flex-col justify-center items-center px-4 backdrop-blur-sm">
@@ -66,7 +69,6 @@
                 <div class="mb-5">
                     <p class="text-xs text-gray-400 mb-2 text-left">或使用常用代號快速登入：</p>
                     <div id="quickNameContainer" class="flex flex-wrap gap-2 justify-center">
-                        <!-- JS 動態生成快選按鈕 -->
                     </div>
                 </div>
 
@@ -139,17 +141,13 @@
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1">指派給 (負責人 / 班別)</label>
                         <input type="text" id="taskAssignee" class="w-full border border-gray-300 rounded-lg p-3 mb-2 focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none bg-white" placeholder="點擊下方標籤，或直接輸入名稱">
-                        <div id="assigneeQuickSelect" class="flex flex-wrap gap-2">
-                            <!-- JS 動態生成快速選擇標籤 -->
-                        </div>
+                        <div id="assigneeQuickSelect" class="flex flex-wrap gap-2"></div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-1">任務區域 (Zone)</label>
-                            <select id="taskZone" class="w-full border border-gray-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none">
-                                <!-- JS 動態產生選項 -->
-                            </select>
+                            <select id="taskZone" class="w-full border border-gray-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-ikea-blue focus:border-ikea-blue outline-none"></select>
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-1">任務屬性</label>
@@ -171,9 +169,7 @@
                             <span>任務分類</span>
                             <button type="button" onclick="openSettingsModal()" class="text-xs text-ikea-blue bg-[#e6f0f7] px-2 py-1 rounded-md border border-blue-100 hover:bg-blue-100 transition"><i class="fa-solid fa-pen"></i> 自訂分類</button>
                         </label>
-                        <div id="dynamicCategorySelection" class="flex flex-wrap gap-2">
-                            <!-- JS 動態生成 -->
-                        </div>
+                        <div id="dynamicCategorySelection" class="flex flex-wrap gap-2"></div>
                     </div>
 
                     <div>
@@ -272,7 +268,6 @@
 
                     <p id="detailDesc" class="text-gray-700 whitespace-pre-wrap bg-gray-50 p-3 rounded-lg leading-relaxed"></p>
 
-                    <!-- 簽收區塊 -->
                     <div class="mt-4 border-t pt-4 border-gray-100">
                         <div class="flex justify-between items-center mb-2">
                             <h3 class="font-bold text-gray-800 text-sm"><i class="fa-solid fa-eye mr-1 text-ikea-blue"></i> 任務簽收 / 已知悉</h3>
@@ -281,7 +276,6 @@
                         <div id="ackList" class="flex flex-wrap gap-2 text-xs"></div>
                     </div>
 
-                    <!-- 進度回報區塊 -->
                     <div class="mt-4 border-t pt-4 border-gray-100 flex-1 flex flex-col">
                         <h3 class="font-bold text-gray-800 text-sm mb-2"><i class="fa-solid fa-list-check mr-1 text-ikea-blue"></i> 任務進度與留言</h3>
                         <div id="progressList" class="flex-1 overflow-y-auto no-scrollbar mb-2 space-y-2 pb-2"></div>
@@ -1128,13 +1122,12 @@
         function openShiftReportsModal() { document.getElementById('shiftReportsModal').classList.remove('hidden'); document.getElementById('shiftReportsModal').classList.add('flex'); if (window.renderShiftReportsList) window.renderShiftReportsList(); }
         function closeShiftReportsModal() { document.getElementById('shiftReportsModal').classList.add('hidden'); document.getElementById('shiftReportsModal').classList.remove('flex'); }
 
-        /* ====== 修復：使用最穩定的 gemini-1.5-flash 端點 ====== */
+        /* ====== 修復：使用 gemini-flash-latest ====== */
         async function callGeminiAPI(prompt, systemInstruction = "") {
             const aiLoading = document.getElementById('aiLoading'), aiResultContainer = document.getElementById('aiResultContainer'), aiResult = document.getElementById('aiResult');
             aiLoading.classList.remove('hidden'); aiLoading.classList.add('flex'); aiResultContainer.classList.add('hidden');
             
-            // 修正為最穩定的模型字串：gemini-1.5-flash
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             
             if (systemInstruction) {
@@ -1199,7 +1192,7 @@
             callGeminiAPI(`請幫我整理交班報告，以下是目前所有未完成的任務：\n\n${taskData}`, `你是一位專業的賣場交班助理。請根據提供的未完成任務，產生一份給『下一班次』的正式交班報告，務必總結最近動態的處理進度。`);
         }
 
-        /* ====== 修復：使用最穩定的 gemini-1.5-flash 端點 ====== */
+        /* ====== 修復：使用 gemini-flash-latest ====== */
         async function refineTaskDescWithAI() {
             const descInput = document.getElementById('taskDesc'), btn = document.getElementById('aiRefineBtn');
             const originalText = descInput.value.trim();
@@ -1212,8 +1205,7 @@
 
             const originalBtnHTML = btn.innerHTML; btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 整理中...`; btn.disabled = true;
             
-            // 修正為最穩定的模型字串：gemini-1.5-flash
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
             
             const payload = {
                 contents: [{ parts: [{ text: `請幫我把這段語音紀錄整理得更清楚：\n\n${originalText}` }] }],
@@ -1327,7 +1319,6 @@
         }
 
         function renderAssignees() {
-            // 將按鈕點擊後寫入 taskAssignee 輸入框
             const quickSelect = document.getElementById('assigneeQuickSelect');
             if (quickSelect) {
                 quickSelect.innerHTML = assignees.map(a => `<button type="button" onclick="document.getElementById('taskAssignee').value='${escapeHTML(a)}'" class="px-3 py-1 bg-[#e6f0f7] text-ikea-blue border border-blue-200 rounded-full text-xs font-bold active:scale-95 transition shadow-sm">${escapeHTML(a)}</button>`).join('');
