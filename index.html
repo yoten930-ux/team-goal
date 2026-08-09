@@ -1,0 +1,174 @@
+<script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, deleteDoc, onSnapshot, collection, query, addDoc, memoryLocalCache, initializeFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // 使用你的專案 ID 作為內部識別
+        const appId = 'team-goal'; 
+        
+        // 替換為你的專屬 Firebase 金鑰
+        const firebaseConfig = {
+            apiKey: "AIzaSyDmmTXwQ0JbHa-U7FRKxdMv2wN8BqZZLhw",
+            authDomain: "team-goal.firebaseapp.com",
+            projectId: "team-goal",
+            storageBucket: "team-goal.firebasestorage.app",
+            messagingSenderId: "819425693121",
+            appId: "1:819425693121:web:c55c547c854678ae4ef340",
+            measurementId: "G-VFNQC619VQ"
+        };
+        
+        let app, db, auth, currentUser;
+
+        if (Object.keys(firebaseConfig).length > 0) {
+            app = initializeApp(firebaseConfig);
+            db = initializeFirestore(app, { localCache: memoryLocalCache() });
+            auth = getAuth(app);
+            
+            const initAuth = async () => {
+                try {
+                    // 使用匿名登入
+                    await signInAnonymously(auth);
+                } catch (e) { console.error("Auth error:", e); }
+            };
+            initAuth();
+
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    currentUser = user; 
+                    try {
+                        const userDoc = await getDoc(doc(db, 'users', user.uid));
+                        if(userDoc.exists() && userDoc.data().role) {
+                            window.currentUserRole = userDoc.data().role;
+                            document.getElementById('roleBtn').classList.add('hidden'); 
+                        } 
+                    } catch(e) {}
+                    
+                    const deleteBtn = document.querySelector('button[onclick="deleteCurrentTask()"]');
+                    if(deleteBtn) {
+                        if (window.currentUserRole === 'manager') deleteBtn.classList.remove('hidden');
+                        else deleteBtn.classList.add('hidden');
+                    }
+                    window.renderCategoryManager();
+                    window.renderQuickNames();
+                    window.renderAssignees();
+                    window.renderZones();
+
+                    startAllSync();
+                }
+            });
+        }
+
+        function startAllSync() {
+            startTaskSync(); 
+            startCategorySync(); 
+            startQuickNamesSync(); 
+            startAssigneeSync(); 
+            startZoneSync(); 
+            startShiftReportSync();
+        }
+
+        function startTaskSync() {
+            if (!currentUser) return;
+            try {
+                onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'tasks')), (snapshot) => {
+                    window.tasks = [];
+                    snapshot.forEach((doc) => { window.tasks.push(doc.data()); });
+                    window.renderTasks();
+                    if (window.currentEditingTaskId && document.getElementById('detailModal').classList.contains('flex')) {
+                        const currentTask = window.tasks.find(t => t.id === window.currentEditingTaskId);
+                        if (!currentTask) window.closeDetailModal(); 
+                    }
+                }, (error) => {});
+            } catch(e) {}
+        }
+
+        window.fbLoadAuditLogs = function(taskId) {
+            if (!currentUser || !db) return;
+            if (window.currentAuditLogUnsubscribe) { window.currentAuditLogUnsubscribe(); window.currentAuditLogUnsubscribe = null; }
+            try {
+                window.currentAuditLogUnsubscribe = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId, 'auditLogs')), (snapshot) => {
+                    let logsArray = [];
+                    snapshot.forEach((doc) => { logsArray.push(doc.data()); });
+                    if(document.getElementById('detailModal').classList.contains('flex') && window.currentEditingTaskId === taskId) {
+                        window.renderProgress(logsArray);
+                    }
+                }, (error) => {});
+            } catch(e) {}
+        }
+
+        function startCategorySync() {
+            if (!currentUser) return;
+            try {
+                onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'categoriesData'), (docSnap) => {
+                    if (docSnap.exists() && docSnap.data().list) {
+                        window.categories = docSnap.data().list; window.renderCategoryManager(); window.renderCategorySelection(); window.renderTasks();
+                    }
+                }, (error) => {});
+            } catch(e){}
+        }
+
+        function startQuickNamesSync() {
+            if (!currentUser) return;
+            try {
+                onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'quickNamesData'), (docSnap) => {
+                    if (docSnap.exists() && docSnap.data().list) { window.quickNames = docSnap.data().list; window.renderQuickNames(); }
+                }, (error) => {});
+            } catch(e){}
+        }
+
+        function startAssigneeSync() {
+            if (!currentUser) return;
+            try {
+                onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'assigneesData'), (docSnap) => {
+                    if (docSnap.exists() && docSnap.data().list) { 
+                        window.assignees = docSnap.data().list; window.renderAssignees(); 
+                    }
+                }, (error) => {});
+            } catch(e){}
+        }
+
+        function startZoneSync() {
+            if (!currentUser) return;
+            try {
+                onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'zonesData'), (docSnap) => {
+                    if (docSnap.exists() && docSnap.data().list) { 
+                        window.zones = docSnap.data().list; window.renderZones(); 
+                    }
+                }, (error) => {});
+            } catch(e){}
+        }
+
+        function startShiftReportSync() {
+            if (!currentUser) return;
+            try {
+                onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'shiftReports')), (snapshot) => {
+                    window.shiftReports = [];
+                    snapshot.forEach((doc) => { window.shiftReports.push(doc.data()); });
+                    window.shiftReports.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+                    if (window.renderShiftReportsList && document.getElementById('shiftReportsModal').classList.contains('flex')) window.renderShiftReportsList();
+                }, (error) => {});
+            } catch(e){}
+        }
+
+        window.renderShiftReportsList = function() {
+            const list = document.getElementById('shiftReportsList');
+            if(!list) return;
+            if (window.shiftReports.length === 0) { list.innerHTML = '<div class="text-center text-gray-400 py-10"><i class="fa-solid fa-file-invoice text-4xl mb-3"></i><br>目前沒有歷史交班紀錄</div>'; return; }
+            list.innerHTML = window.shiftReports.map(report => `
+                <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-3">
+                    <div class="flex justify-between items-center mb-3 pb-2 border-b"><span class="font-bold text-gray-800 text-sm"><i class="fa-regular fa-clock mr-1 text-ikea-blue"></i> ${new Date(report.timestamp).toLocaleString('zh-TW')}</span><span class="text-xs bg-[#e6f0f7] text-ikea-blue px-2 py-0.5 rounded-full font-bold"><i class="fa-solid fa-user-pen mr-1"></i> ${escapeHTML(report.author)}</span></div>
+                    <div class="markdown-body text-sm text-gray-700">${report.content}</div>
+                </div>
+            `).join('');
+        };
+
+        window.fbSaveTask = async (task) => { if (currentUser && db) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', task.id), task).catch(e=>{}); };
+        window.fbUpdateTask = async (task) => { if (currentUser && db) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', task.id), task).catch(e => { if(window.showToast) window.showToast("更新失敗", true); }); };
+        window.fbAppendAuditLog = async (taskId, logData) => { if (currentUser && db) await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId, 'auditLogs'), logData).catch(e=>{}); };
+        window.fbDeleteTask = async (taskId) => { if (currentUser && db) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId)).catch(e => { if(window.showToast) window.showToast("刪除失敗", true); }); };
+        window.fbSaveCategories = async (newCategories) => { if (currentUser && db) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'categoriesData'), { list: newCategories }).catch(e=>{}); };
+        window.fbSaveQuickNames = async (names) => { if (currentUser && db) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'quickNamesData'), { list: names }).catch(e=>{}); };
+        window.fbSaveAssignees = async (list) => { if (currentUser && db) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'assigneesData'), { list: list }).catch(e=>{}); }; 
+        window.fbSaveZones = async (list) => { if (currentUser && db) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'zonesData'), { list: list }).catch(e=>{}); }; 
+        window.fbSaveShiftReport = async (report) => { if (currentUser && db) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftReports', report.id), report).catch(e => { if(window.showToast) window.showToast("封存報告失敗", true); throw e; }); };
+    </script>
